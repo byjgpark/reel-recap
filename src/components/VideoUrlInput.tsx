@@ -86,13 +86,13 @@ export function VideoUrlInput() {
       }
       
       // Transform API response to match store format
-      const transcriptLines = data.transcript.map((item: any) => ({
+      const transcriptLines = data.transcript.map((item: { text: string; offset?: number }) => ({
         text: item.text,
         timestamp: item.offset ? `${Math.floor(item.offset / 1000)}s` : undefined
       }));
       
       // Calculate total duration from transcript data
-      const totalDuration = data.transcript.reduce((max: number, item: any) => {
+      const totalDuration = data.transcript.reduce((max: number, item: { offset?: number; duration?: number }) => {
         const endTime = (item.offset || 0) + (item.duration || 0);
         return Math.max(max, endTime);
       }, 0);
@@ -110,9 +110,9 @@ export function VideoUrlInput() {
       
       // Redirect to transcript page with the video URL
       router.push(`/transcript?url=${encodeURIComponent(inputUrl)}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Transcript extraction error:', error);
-      setError(error.message || 'Failed to extract transcript. Please try again.');
+      setError(error instanceof Error ? error.message : 'Failed to extract transcript. Please try again.');
     } finally {
       setIsLoading(false);
     }

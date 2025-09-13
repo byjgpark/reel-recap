@@ -1,9 +1,6 @@
 'use client';
 
 import { VideoUrlInput } from '@/components/VideoUrlInput';
-import { TranscriptDisplay } from '@/components/TranscriptDisplay';
-import { SummarySection } from '@/components/SummarySection';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';
 

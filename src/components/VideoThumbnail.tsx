@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ExternalLink, Play, Image as ImageIcon } from 'lucide-react';
 import { VideoThumbnail as VideoThumbnailType } from '@/store/useStore';
 import { getYouTubeFallbackThumbnail } from '@/utils/videoUtils';
@@ -75,10 +76,13 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
         
         {/* Thumbnail Image */}
         {!imageError ? (
-          <img
+          <Image
             src={thumbnail.url}
             alt={`${getPlatformName(thumbnail.platform)} video thumbnail`}
             className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+            width={400}
+            height={192}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             onError={handleImageError}
             onLoad={handleImageLoad}
           />

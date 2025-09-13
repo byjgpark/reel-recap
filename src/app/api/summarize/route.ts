@@ -118,7 +118,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
       success: true,
       summary
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Summarization error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },

@@ -16,7 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Reel Recap - Video Transcript Extractor",
   description: "Extract transcripts and generate AI summaries from YouTube Shorts, TikTok, and Instagram Reels",
-  viewport: "width=device-width, initial-scale=1.0",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1.0,
 };
 
 export default function RootLayout({

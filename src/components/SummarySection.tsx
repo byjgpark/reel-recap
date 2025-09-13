@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { Sparkles, Copy, Check, Globe } from 'lucide-react';
+import { Sparkles, Globe } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
 const SUPPORTED_LANGUAGES = [
@@ -20,7 +19,6 @@ const SUPPORTED_LANGUAGES = [
 ];
 
 export function SummarySection() {
-  const [copied, setCopied] = useState(false);
   
   const {
     transcript,
@@ -70,15 +68,7 @@ export function SummarySection() {
     }
   };
 
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(summary);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy summary:', err);
-    }
-  };
+
 
   if (transcript.length === 0) {
     return null;

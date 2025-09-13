@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Copy, Star, AlertCircle, Sparkles, Globe } from 'lucide-react';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { Copy, AlertCircle, Sparkles, Globe } from 'lucide-react';
 import { VideoThumbnail } from '@/components/VideoThumbnail';
 import { useStore } from '@/store/useStore';
 import Link from 'next/link';
@@ -23,7 +22,7 @@ const SUPPORTED_LANGUAGES = [
   { code: 'hi', name: 'Hindi' },
 ];
 
-export default function TranscriptPage() {
+function TranscriptContent() {
   const searchParams = useSearchParams();
   const videoUrl = searchParams.get('url');
   const { 
@@ -322,5 +321,20 @@ export default function TranscriptPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function TranscriptPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading transcript...</p>
+        </div>
+      </div>
+    }>
+      <TranscriptContent />
+    </Suspense>
   );
 }

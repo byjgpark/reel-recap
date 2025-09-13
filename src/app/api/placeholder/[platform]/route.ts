@@ -47,9 +47,9 @@ function generatePlaceholderSVG(platform: string): string {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { platform: string } }
+  { params }: { params: Promise<{ platform: string }> }
 ): Promise<NextResponse> {
-  const { platform } = params;
+  const { platform } = await params;
   
   const svg = generatePlaceholderSVG(platform);
   

@@ -19,29 +19,6 @@ interface SupadataTranscriptItem {
   lang: string;
 }
 
-interface SupadataResponse {
-  lang: string;
-  availableLangs: string[];
-  content: SupadataTranscriptItem[];
-}
-
-// Extract video ID from YouTube URL
-function extractYouTubeVideoId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
-    /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) {
-      return match[1];
-    }
-  }
-
-  return null;
-}
-
 // Validate if URL is a supported platform
 function validateVideoUrl(url: string): { isValid: boolean; platform: string; error?: string } {
   try {
@@ -69,7 +46,7 @@ function validateVideoUrl(url: string): { isValid: boolean; platform: string; er
     }
 
     return { isValid: false, platform: 'unknown', error: 'Unsupported platform. Supported platforms: YouTube, TikTok, Instagram, Twitter/X' };
-  } catch (error) {
+  } catch {
     return { isValid: false, platform: 'unknown', error: 'Invalid URL format' };
   }
 }
@@ -137,13 +114,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
 
         return NextResponse.json({
           success: true,
-          transcript: data.content.map((item: any) => ({
+          transcript: data.content.map((item: SupadataTranscriptItem) => ({
             text: item.text,
             duration: item.duration,
             offset: item.offset
           }))
         });
-    } catch (transcriptError: any) {
+    } catch (transcriptError: unknown) {
       console.error('Transcript extraction error:', transcriptError);
       
       return NextResponse.json(
@@ -151,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         { status: 500 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
