@@ -44,7 +44,7 @@ export const useStore = create<AppState>((set) => ({
   videoUrl: '',
   transcript: [],
   summary: '',
-  selectedLanguage: 'English',
+  selectedLanguage: 'en',
   thumbnail: null,
   isLoading: false,
   isGeneratingSummary: false,

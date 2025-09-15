@@ -18,6 +18,18 @@ const SUPPORTED_LANGUAGES = [
   { code: 'hi', name: 'Hindi' },
 ];
 
+// Helper function to get language name from code
+const getLanguageName = (code: string): string => {
+  const language = SUPPORTED_LANGUAGES.find(lang => lang.code === code);
+  return language ? language.name : 'English';
+};
+
+// Helper function to get language code from name
+const getLanguageCode = (name: string): string => {
+  const language = SUPPORTED_LANGUAGES.find(lang => lang.name === name);
+  return language ? language.code : 'en';
+};
+
 export function SummarySection() {
   
   const {
@@ -50,7 +62,7 @@ export function SummarySection() {
         },
         body: JSON.stringify({
           transcript: transcriptText,
-          language: selectedLanguage,
+          language: getLanguageName(selectedLanguage),
         }),
       });
 
@@ -101,7 +113,7 @@ export function SummarySection() {
             disabled={isGeneratingSummary}
           >
             {SUPPORTED_LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.name}>
+              <option key={lang.code} value={lang.code}>
                 {lang.name}
               </option>
             ))}

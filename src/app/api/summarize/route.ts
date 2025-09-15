@@ -11,6 +11,26 @@ interface SummarizeResponse {
   error?: string;
 }
 
+// Language mapping for converting language names to codes
+const getLanguageCode = (language: string): string => {
+  const languageMap: { [key: string]: string } = {
+    'English': 'en',
+    'Spanish': 'es', 
+    'French': 'fr',
+    'German': 'de',
+    'Italian': 'it',
+    'Portuguese': 'pt',
+    'Russian': 'ru',
+    'Japanese': 'ja',
+    'Korean': 'ko',
+    'Chinese': 'zh',
+    'Arabic': 'ar',
+    'Hindi': 'hi'
+  };
+  
+  return languageMap[language] || language.toLowerCase() || 'en';
+};
+
 // Language prompts for different summary languages
 const getLanguagePrompt = (language: string): string => {
   const prompts = {
@@ -23,7 +43,9 @@ const getLanguagePrompt = (language: string): string => {
     ru: 'Пожалуйста, предоставьте краткое изложение следующей видео транскрипции на русском языке:',
     ja: '以下の動画の文字起こしの簡潔な要約を日本語で提供してください：',
     ko: '다음 비디오 대본의 간결한 요약을 한국어로 제공해 주세요:',
-    zh: '请用中文提供以下视频转录的简洁摘要：'
+    zh: '请用中文提供以下视频转录的简洁摘要：',
+    ar: 'يرجى تقديم ملخص موجز للنص المكتوب للفيديو التالي باللغة العربية:',
+    hi: 'कृपया निम्नलिखित वीडियो ट्रांसक्रिप्ट का संक्षिप्त सारांश हिंदी में प्रदान करें:'
   };
   
   return prompts[language as keyof typeof prompts] || prompts.en;
@@ -31,7 +53,7 @@ const getLanguagePrompt = (language: string): string => {
 
 export async function POST(request: NextRequest): Promise<NextResponse<SummarizeResponse>> {
   try {
-    const { transcript, language = 'en' }: SummarizeRequest = await request.json();
+    const { transcript, language = 'English' }: SummarizeRequest = await request.json();
 
     if (!transcript) {
       return NextResponse.json(
@@ -56,8 +78,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
       );
     }
 
+    // Convert language name to language code
+    const languageCode = getLanguageCode(language);
+    
     // Prepare the prompt
-    const languagePrompt = getLanguagePrompt(language);
+    const languagePrompt = getLanguagePrompt(languageCode);
     const systemPrompt = `You are an AI assistant that creates concise, informative summaries of video content. Focus on the main points, key insights, and important details. Keep the summary clear and well-structured.`;
     const userPrompt = `${languagePrompt}\n\n${transcript}`;
 

@@ -22,6 +22,18 @@ const SUPPORTED_LANGUAGES = [
   { code: 'hi', name: 'Hindi' },
 ];
 
+// Helper function to get language name from code
+const getLanguageName = (code: string): string => {
+  const language = SUPPORTED_LANGUAGES.find(lang => lang.code === code);
+  return language ? language.name : 'English';
+};
+
+// Helper function to get language code from name
+const getLanguageCode = (name: string): string => {
+  const language = SUPPORTED_LANGUAGES.find(lang => lang.name === name);
+  return language ? language.code : 'en';
+};
+
 function TranscriptContent() {
   const searchParams = useSearchParams();
   const videoUrl = searchParams.get('url');
@@ -88,7 +100,7 @@ function TranscriptContent() {
         },
         body: JSON.stringify({
           transcript: transcriptText,
-          language: selectedLanguage,
+          language: getLanguageName(selectedLanguage),
         }),
       });
 
@@ -267,7 +279,7 @@ function TranscriptContent() {
             disabled={isGeneratingSummary}
           >
             {SUPPORTED_LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.name}>
+              <option key={lang.code} value={lang.code}>
                 {lang.name}
               </option>
             ))}
@@ -300,7 +312,7 @@ function TranscriptContent() {
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium text-gray-900">Summary</h4>
                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  {selectedLanguage}
+                  {getLanguageName(selectedLanguage)}
                 </span>
               </div>
               <div className="prose prose-sm max-w-none">
