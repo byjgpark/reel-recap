@@ -79,7 +79,7 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
           <Image
             src={thumbnail.url}
             alt={`${getPlatformName(thumbnail.platform)} video thumbnail`}
-            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-40 sm:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
             width={400}
             height={192}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -88,7 +88,7 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
           />
         ) : (
           /* Fallback for non-YouTube or failed thumbnails */
-          <div className="w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+          <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
             <div className="text-center">
               <ImageIcon className="h-12 w-12 text-slate-400 mx-auto mb-2" />
               <p className="text-sm text-slate-600">{getPlatformName(thumbnail.platform)} Video</p>
@@ -111,7 +111,7 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
         </div>
         
         {/* Duration and Word Count Overlays */}
-        <div className="absolute bottom-2 left-2 flex items-center space-x-2">
+        <div className="absolute bottom-2 left-2 flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">
           {/* Duration */}
           {thumbnail.duration && (
             <div className="bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm font-medium flex items-center">

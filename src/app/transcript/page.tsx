@@ -138,11 +138,11 @@ function TranscriptContent() {
         </div>
       </header>
 
-      <main className="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 w-full">
+        <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Transcript Section */}
-          <div className="space-y-6">
-            <div className="bright-card p-4 sm:p-6 h-[400px] sm:h-[500px] lg:h-[600px] flex flex-col">
+          <div className="space-y-6 order-1 lg:order-1">
+            <div className="bright-card p-4 sm:p-6 min-h-[400px] max-h-[80vh] lg:h-[600px] flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-slate-800">Transcript</h2>
                 <button className="p-2 text-slate-500 hover:text-slate-700 transition-colors">
@@ -181,14 +181,14 @@ function TranscriptContent() {
                 <button 
                   onClick={copyTranscript}
                   disabled={transcript.length === 0}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-4 py-3 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 min-h-[44px]"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-3 py-2.5 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
                   <Copy className="h-4 w-4" />
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
                 <button 
                   onClick={() => setShowTimestamps(!showTimestamps)}
-                  className={`flex-1 px-4 py-3 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 min-h-[44px] ${
+                  className={`flex-1 px-3 py-2.5 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 text-sm sm:text-base ${
                     showTimestamps 
                       ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 focus:ring-slate-500' 
                       : 'bg-blue-100 hover:bg-blue-200 text-blue-700 focus:ring-blue-500'
@@ -199,7 +199,7 @@ function TranscriptContent() {
               </div>
 
               {/* Transcript Content */}
-              <div className="bg-slate-50 rounded-lg p-4 flex-1 overflow-y-auto max-h-96">
+              <div className="bg-slate-50 rounded-lg p-3 sm:p-4 flex-1 overflow-y-auto">
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -214,19 +214,19 @@ function TranscriptContent() {
                   showTimestamps ? (
                     <div className="space-y-3">
                       {transcript.map((line, index) => (
-                        <div key={index} className="flex items-start space-x-3">
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-start space-y-2 sm:space-y-0 sm:space-x-3">
                           {line.timestamp && (
-                            <span className="font-medium text-blue-600 min-w-[60px] text-sm px-2 py-1 bg-blue-50 rounded">
+                            <span className="font-medium text-blue-600 text-xs sm:text-sm px-2 py-1 bg-blue-50 rounded self-start sm:min-w-[60px] text-center">
                               {line.timestamp}
                             </span>
                           )}
-                          <p className="text-slate-700 leading-relaxed flex-1">{line.text}</p>
+                          <p className="text-slate-700 leading-relaxed flex-1 text-sm sm:text-base">{line.text}</p>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="prose max-w-none">
-                      <p className="text-slate-700 leading-relaxed">
+                      <p className="text-slate-700 leading-relaxed text-sm sm:text-base">
                         {transcript.map(line => line.text).join(' ')}
                       </p>
                     </div>
@@ -241,8 +241,8 @@ function TranscriptContent() {
           </div>
 
           {/* AI Features Section */}
-          <div className="space-y-6">
-           <div className="bright-card p-4 sm:p-6 h-[400px] sm:h-[500px] lg:h-[600px] flex flex-col">
+          <div className="space-y-6 order-2 lg:order-2">
+           <div className="bright-card p-4 sm:p-6 min-h-[400px] max-h-[80vh] lg:h-[600px] flex flex-col">
         {/* Header */}
         <div className="flex items-center space-x-2 mb-6">
           <Sparkles className="h-5 w-5 text-blue-500" />
@@ -278,7 +278,7 @@ function TranscriptContent() {
         <button
           onClick={generateSummary}
           disabled={isGeneratingSummary}
-          className="w-full inline-flex items-center justify-center space-x-2 px-6 py-4 sm:py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium text-sm rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[48px]"
+          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-500 disabled:cursor-not-allowed text-white px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center justify-center gap-2 mb-4 text-sm sm:text-base"
         >
           {isGeneratingSummary ? (
             <>
@@ -296,7 +296,7 @@ function TranscriptContent() {
         {/* Summary Display */}
         {summary ? (
           <div className="mt-6 flex-1 overflow-y-auto">
-            <div className="bg-slate-50 rounded-lg p-4">
+            <div className="bg-slate-50 rounded-lg p-3 sm:p-4">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium text-gray-900">Summary</h4>
                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -304,7 +304,7 @@ function TranscriptContent() {
                 </span>
               </div>
               <div className="prose prose-sm max-w-none">
-                <p className="text-gray-700 leading-relaxed">{summary}</p>
+                <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{summary}</p>
               </div>
             </div>
           </div>
