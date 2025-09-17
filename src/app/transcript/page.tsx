@@ -28,12 +28,6 @@ const getLanguageName = (code: string): string => {
   return language ? language.name : 'English';
 };
 
-// Helper function to get language code from name
-const getLanguageCode = (name: string): string => {
-  const language = SUPPORTED_LANGUAGES.find(lang => lang.name === name);
-  return language ? language.code : 'en';
-};
-
 function TranscriptContent() {
   const searchParams = useSearchParams();
   const videoUrl = searchParams.get('url');

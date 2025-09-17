@@ -14,15 +14,19 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Type definitions
+type MixpanelProperties = Record<string, string | number | boolean | Date | null | undefined>;
+type UserProperties = Record<string, string | number | boolean | Date | null | undefined>;
+
 // Track events
-export const trackEvent = (eventName: string, properties?: Record<string, any>) => {
+export const trackEvent = (eventName: string, properties?: MixpanelProperties) => {
   if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
     mixpanel.track(eventName, properties);
   }
 };
 
 // Identify user
-export const identifyUser = (userId: string, properties?: Record<string, any>) => {
+export const identifyUser = (userId: string, properties?: UserProperties) => {
   if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
     mixpanel.identify(userId);
     if (properties) {
@@ -32,14 +36,14 @@ export const identifyUser = (userId: string, properties?: Record<string, any>) =
 };
 
 // Set user properties
-export const setUserProperties = (properties: Record<string, any>) => {
+export const setUserProperties = (properties: UserProperties) => {
   if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
     mixpanel.people.set(properties);
   }
 };
 
 // Track page views
-export const trackPageView = (pageName: string, properties?: Record<string, any>) => {
+export const trackPageView = (pageName: string, properties?: MixpanelProperties) => {
   trackEvent('Page View', {
     page: pageName,
     ...properties,
