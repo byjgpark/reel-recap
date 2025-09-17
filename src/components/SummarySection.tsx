@@ -2,6 +2,7 @@
 
 import { Sparkles, Globe } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { trackEvent } from '@/utils/mixpanel';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -51,6 +52,14 @@ export function SummarySection() {
 
     setIsGeneratingSummary(true);
     setError(null);
+    
+    // Track summary generation start
+    trackEvent('Summary Generation Started', {
+      language: getLanguageName(selectedLanguage),
+      languageCode: selectedLanguage,
+      transcriptLength: transcript.length,
+      timestamp: new Date().toISOString()
+    });
 
     try {
       const transcriptText = transcript.map(line => line.text).join(' ');
@@ -72,9 +81,28 @@ export function SummarySection() {
 
       const data = await response.json();
       setSummary(data.summary);
+      
+      // Track successful summary generation
+      trackEvent('Summary Generated Successfully', {
+        language: getLanguageName(selectedLanguage),
+        languageCode: selectedLanguage,
+        transcriptLength: transcript.length,
+        summaryLength: data.summary?.length || 0,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Error generating summary:', error);
-      setError('Failed to generate summary. Please try again.');
+      const errorMessage = 'Failed to generate summary. Please try again.';
+      setError(errorMessage);
+      
+      // Track summary generation error
+      trackEvent('Summary Generation Failed', {
+        language: getLanguageName(selectedLanguage),
+        languageCode: selectedLanguage,
+        transcriptLength: transcript.length,
+        error: error instanceof Error ? error.message : errorMessage,
+        timestamp: new Date().toISOString()
+      });
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -108,7 +136,19 @@ export function SummarySection() {
           <select
             id="language-select"
             value={selectedLanguage}
-            onChange={(e) => setSelectedLanguage(e.target.value)}
+            onChange={(e) => {
+              const newLanguage = e.target.value;
+              setSelectedLanguage(newLanguage);
+              
+              // Track language selection
+              trackEvent('Summary Language Changed', {
+                previousLanguage: getLanguageName(selectedLanguage),
+                newLanguage: getLanguageName(newLanguage),
+                previousLanguageCode: selectedLanguage,
+                newLanguageCode: newLanguage,
+                timestamp: new Date().toISOString()
+              });
+            }}
             className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             disabled={isGeneratingSummary}
           >

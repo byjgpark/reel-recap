@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Play, AlertCircle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
+import { trackEvent } from '@/utils/mixpanel';
 
 const SUPPORTED_PLATFORMS = {
   youtube: /^(https?:\/\/)?(www\.)?(youtube\.com\/shorts\/|youtu\.be\/)/,
@@ -51,6 +52,11 @@ export function VideoUrlInput() {
     
     if (!validation.isValid) {
       setValidationError(validation.error || '');
+      trackEvent('Video URL Validation Failed', {
+        url: inputUrl,
+        error: validation.error,
+        timestamp: new Date().toISOString()
+      });
       return;
     }
     
@@ -59,6 +65,13 @@ export function VideoUrlInput() {
     clearData();
     setIsLoading(true);
     setError(null);
+    
+    // Track video URL submission
+    trackEvent('Video URL Submitted', {
+      url: inputUrl,
+      platform: validation.platform,
+      timestamp: new Date().toISOString()
+    });
     
     // Generate and store thumbnail data
     const thumbnailData = generateThumbnailFromUrl(inputUrl);
@@ -108,11 +121,29 @@ export function VideoUrlInput() {
       
       setTranscript(transcriptLines);
       
+      // Track successful transcript extraction
+      trackEvent('Transcript Extracted Successfully', {
+        url: inputUrl,
+        platform: validation.platform,
+        transcriptLength: transcriptLines.length,
+        duration: Math.floor(totalDuration / 1000),
+        timestamp: new Date().toISOString()
+      });
+      
       // Redirect to transcript page with the video URL
       router.push(`/transcript?url=${encodeURIComponent(inputUrl)}`);
     } catch (error: unknown) {
       console.error('Transcript extraction error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to extract transcript. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to extract transcript. Please try again.';
+      setError(errorMessage);
+      
+      // Track transcript extraction error
+      trackEvent('Transcript Extraction Failed', {
+        url: inputUrl,
+        platform: validation.platform,
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      });
     } finally {
       setIsLoading(false);
     }
