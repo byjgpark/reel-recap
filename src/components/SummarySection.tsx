@@ -51,8 +51,7 @@ export function SummarySection() {
     trackEvent('Summary Generation Started', {
       language: getLanguageName(selectedLanguage),
       languageCode: selectedLanguage,
-      transcriptLength: transcript.length,
-      timestamp: new Date().toISOString()
+      transcriptLength: transcript.length
     });
 
     try {
@@ -81,8 +80,7 @@ export function SummarySection() {
         language: getLanguageName(selectedLanguage),
         languageCode: selectedLanguage,
         transcriptLength: transcript.length,
-        summaryLength: data.summary?.length || 0,
-        timestamp: new Date().toISOString()
+        summaryLength: data.summary?.length || 0
       });
     } catch (error) {
       console.error('Error generating summary:', error);
@@ -94,8 +92,7 @@ export function SummarySection() {
         language: getLanguageName(selectedLanguage),
         languageCode: selectedLanguage,
         transcriptLength: transcript.length,
-        error: error instanceof Error ? error.message : errorMessage,
-        timestamp: new Date().toISOString()
+        error: error instanceof Error ? error.message : errorMessage
       });
     } finally {
       setIsGeneratingSummary(false);
@@ -139,8 +136,7 @@ export function SummarySection() {
                 previousLanguage: getLanguageName(selectedLanguage),
                 newLanguage: getLanguageName(newLanguage),
                 previousLanguageCode: selectedLanguage,
-                newLanguageCode: newLanguage,
-                timestamp: new Date().toISOString()
+                newLanguageCode: newLanguage
               });
             }}
             className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

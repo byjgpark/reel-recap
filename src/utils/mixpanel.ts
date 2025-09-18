@@ -21,7 +21,12 @@ type UserProperties = Record<string, string | number | boolean | Date | null | u
 // Track events
 export const trackEvent = (eventName: string, properties?: MixpanelProperties) => {
   if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
-    mixpanel.track(eventName, properties);
+    // Add timestamp automatically on client side to avoid hydration issues
+    const eventProperties = {
+      ...properties,
+      timestamp: new Date().toISOString()
+    };
+    mixpanel.track(eventName, eventProperties);
   }
 };
 

@@ -54,8 +54,7 @@ export function VideoUrlInput() {
       setValidationError(validation.error || '');
       trackEvent('Video URL Validation Failed', {
         url: inputUrl,
-        error: validation.error,
-        timestamp: new Date().toISOString()
+        error: validation.error
       });
       return;
     }
@@ -69,8 +68,7 @@ export function VideoUrlInput() {
     // Track video URL submission
     trackEvent('Video URL Submitted', {
       url: inputUrl,
-      platform: validation.platform,
-      timestamp: new Date().toISOString()
+      platform: validation.platform
     });
     
     // Generate and store thumbnail data
@@ -90,9 +88,6 @@ export function VideoUrlInput() {
       });
       
       const data = await response.json();
-
-      console.log("check data", data);
-      console.log("check response", response);
       
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to extract transcript');
@@ -126,8 +121,7 @@ export function VideoUrlInput() {
         url: inputUrl,
         platform: validation.platform,
         transcriptLength: transcriptLines.length,
-        duration: Math.floor(totalDuration / 1000),
-        timestamp: new Date().toISOString()
+        duration: Math.floor(totalDuration / 1000)
       });
       
       // Redirect to transcript page with the video URL
@@ -141,8 +135,7 @@ export function VideoUrlInput() {
       trackEvent('Transcript Extraction Failed', {
         url: inputUrl,
         platform: validation.platform,
-        error: errorMessage,
-        timestamp: new Date().toISOString()
+        error: errorMessage
       });
     } finally {
       setIsLoading(false);

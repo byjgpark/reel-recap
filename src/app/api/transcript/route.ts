@@ -83,9 +83,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
           );
         }
 
-        console.log("Check url", url)
-        console.log("Check encodeURIComponent", encodeURIComponent(url))
-
         const response = await fetch(`https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(url)}`, {
           method: 'GET',
           headers: {
