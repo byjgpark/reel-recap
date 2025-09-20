@@ -109,6 +109,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
           );
         }
 
+        // Calculate total video duration and validate 3-minute limit
+        const totalDuration = data.content.reduce((max: number, item: SupadataTranscriptItem) => {
+          const endTime = (item.offset || 0) + (item.duration || 0);
+          return Math.max(max, endTime);
+        }, 0);
+
+        const durationInSeconds = Math.floor(totalDuration / 1000);
+        const MAX_DURATION_SECONDS = 180; // 3 minutes
+
+        if (durationInSeconds > MAX_DURATION_SECONDS) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: `Video duration (${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}) exceeds the 3-minute limit. Please use a shorter video.` 
+            },
+            { status: 400 }
+          );
+        }
+
         return NextResponse.json({
           success: true,
           transcript: data.content.map((item: SupadataTranscriptItem) => ({

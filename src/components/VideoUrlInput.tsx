@@ -105,11 +105,21 @@ export function VideoUrlInput() {
         return Math.max(max, endTime);
       }, 0);
       
+      const durationInSeconds = Math.floor(totalDuration / 1000);
+      const MAX_DURATION_SECONDS = 180; // 3 minutes
+      
+      // Validate duration on client side as well
+      if (durationInSeconds > MAX_DURATION_SECONDS) {
+        const minutes = Math.floor(durationInSeconds / 60);
+        const seconds = durationInSeconds % 60;
+        throw new Error(`Video duration (${minutes}:${String(seconds).padStart(2, '0')}) exceeds the 3-minute limit. Please use a shorter video.`);
+      }
+      
       // Update thumbnail with duration information
       if (thumbnailData && totalDuration > 0) {
         const updatedThumbnail = {
           ...thumbnailData,
-          duration: Math.floor(totalDuration / 1000) // Convert to seconds
+          duration: durationInSeconds
         };
         setThumbnail(updatedThumbnail);
       }
@@ -199,6 +209,8 @@ export function VideoUrlInput() {
       
       <div className="mt-4 text-xs text-slate-600 text-center">
         Supported platforms: <span className="text-blue-600 font-medium">YouTube Shorts</span>, <span className="text-blue-600 font-medium">TikTok</span>, <span className="text-blue-600 font-medium">Instagram Reels</span>
+        <br />
+        <span className="text-amber-600 font-medium">⏱ Videos must be 3 minutes or less</span>
       </div>
     </div>
   );
