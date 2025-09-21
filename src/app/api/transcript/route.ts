@@ -19,6 +19,16 @@ interface SupadataTranscriptItem {
   lang: string;
 }
 
+// Rate limiting configuration
+interface RateLimitData {
+  count: number;
+  resetTime: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitData>();
+const RATE_LIMIT = 5; // requests per hour
+const WINDOW_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
 // Validate if URL is a supported platform
 function validateVideoUrl(url: string): { isValid: boolean; platform: string; error?: string } {
   try {
@@ -53,6 +63,41 @@ function validateVideoUrl(url: string): { isValid: boolean; platform: string; er
 
 export async function POST(request: NextRequest): Promise<NextResponse<TranscriptResponse>> {
   try {
+    // Extract client IP for rate limiting
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                    request.headers.get('x-real-ip') || 
+                    request.headers.get('cf-connecting-ip') || 
+                    'unknown';
+    
+    // Rate limiting check
+    const now = Date.now();
+    const userLimit = rateLimitMap.get(clientIP) || { count: 0, resetTime: now + WINDOW_MS };
+    
+    // Reset counter if window has expired
+    if (now > userLimit.resetTime) {
+      userLimit.count = 0;
+      userLimit.resetTime = now + WINDOW_MS;
+    }
+    
+    // Check if rate limit exceeded
+    if (userLimit.count >= RATE_LIMIT) {
+      console.log(`[${new Date().toISOString()}] RATE LIMIT EXCEEDED - IP: ${clientIP}, Attempts: ${userLimit.count}`);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Rate limit exceeded. You can make ${RATE_LIMIT} requests per hour. Please try again later.` 
+        },
+        { status: 429 }
+      );
+    }
+    
+    // Increment request count
+    userLimit.count++;
+    rateLimitMap.set(clientIP, userLimit);
+    
+    // Log rate limit info for monitoring
+    console.log(`[${new Date().toISOString()}] Rate limit check - IP: ${clientIP}, Count: ${userLimit.count}/${RATE_LIMIT}`);
+    
     const { url } = await request.json();
 
     if (!url) {
@@ -92,6 +137,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
+          console.log(`[${new Date().toISOString()}] API CALL FAILED - IP: ${clientIP}, URL: ${url}, Status: ${response.status}`);
           return NextResponse.json(
             { success: false, error: errorData.message || `Failed to fetch transcript (Status: ${response.status})` },
             { status: response.status }
@@ -128,6 +174,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
           );
         }
 
+        console.log(`[${new Date().toISOString()}] TRANSCRIPT SUCCESS - IP: ${clientIP}, URL: ${url}, Duration: ${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}`);
+        
         return NextResponse.json({
           success: true,
           transcript: data.content.map((item: SupadataTranscriptItem) => ({
