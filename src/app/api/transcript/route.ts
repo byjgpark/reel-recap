@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyCaptchaToken, getCaptchaRequirement, CAPTCHA_THRESHOLDS } from '@/utils/captcha';
 
 interface TranscriptItem {
   text: string;
@@ -63,6 +64,9 @@ function validateVideoUrl(url: string): { isValid: boolean; platform: string; er
 
 export async function POST(request: NextRequest): Promise<NextResponse<TranscriptResponse>> {
   try {
+    // Parse request body first
+    const { url, captchaToken } = await request.json();
+    
     // Extract client IP for rate limiting
     const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                     request.headers.get('x-real-ip') || 
@@ -79,26 +83,53 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       userLimit.resetTime = now + WINDOW_MS;
     }
     
-    // Check if rate limit exceeded
-    if (userLimit.count >= RATE_LIMIT) {
-      console.log(`[${new Date().toISOString()}] RATE LIMIT EXCEEDED - IP: ${clientIP}, Attempts: ${userLimit.count}`);
+    // Progressive CAPTCHA enforcement
+    const captchaRequirement = getCaptchaRequirement(userLimit.count);
+    
+    // Block requests that exceed absolute limit
+    if (captchaRequirement === 'blocked') {
+      console.log(`[${new Date().toISOString()}] REQUEST BLOCKED - IP: ${clientIP}, Attempts: ${userLimit.count}`);
       return NextResponse.json(
         { 
           success: false, 
-          error: `Rate limit exceeded. You can make ${RATE_LIMIT} requests per hour. Please try again later.` 
+          error: `Too many requests. Please wait before trying again.` 
         },
         { status: 429 }
       );
     }
     
+    // Require CAPTCHA verification for high-volume users
+    if (captchaRequirement === 'required') {
+      if (!captchaToken) {
+        console.log(`[${new Date().toISOString()}] CAPTCHA REQUIRED - IP: ${clientIP}, Attempts: ${userLimit.count}`);
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `Rate limit exceeded. Please complete CAPTCHA verification to continue.` 
+          },
+          { status: 429 }
+        );
+      }
+      
+      // Verify CAPTCHA token
+      const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
+      if (!captchaResult.success) {
+        console.log(`[${new Date().toISOString()}] CAPTCHA VERIFICATION FAILED - IP: ${clientIP}`);
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: captchaResult.error || 'CAPTCHA verification failed' 
+          },
+          { status: 400 }
+        );
+      }
+      
+      console.log(`[${new Date().toISOString()}] CAPTCHA VERIFIED - IP: ${clientIP}`);
+    }
+    
     // Increment request count
     userLimit.count++;
     rateLimitMap.set(clientIP, userLimit);
-    
-    // Log rate limit info for monitoring
-    console.log(`[${new Date().toISOString()}] Rate limit check - IP: ${clientIP}, Count: ${userLimit.count}/${RATE_LIMIT}`);
-    
-    const { url } = await request.json();
 
     if (!url) {
       return NextResponse.json(
@@ -115,6 +146,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         { status: 400 }
       );
     }
+    
+    // Log rate limit info for monitoring
+    console.log(`[${new Date().toISOString()}] Rate limit check - IP: ${clientIP}, Count: ${userLimit.count}/${RATE_LIMIT}`);
 
     // All platforms are now supported via Supadata API
     try {
