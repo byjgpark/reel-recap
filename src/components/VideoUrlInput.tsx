@@ -35,9 +35,8 @@ export function VideoUrlInput() {
   const router = useRouter();
   const [inputUrl, setInputUrl] = useState('');
   const [validationError, setValidationError] = useState('');
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [showCaptcha, setShowCaptcha] = useState(false);
-  const [rateLimitExceeded, setRateLimitExceeded] = useState(false);
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
+  const [showVerification, setShowVerification] = useState(false);
   
   const { 
     setVideoUrl, 
@@ -81,9 +80,9 @@ export function VideoUrlInput() {
       setThumbnail(thumbnailData);
     }
     
-    // Check if CAPTCHA is required but not completed
-    if (showCaptcha && !captchaToken) {
-      setValidationError('Please complete the CAPTCHA verification to continue.');
+    // Check if verification is required but not completed
+    if (showVerification && !verificationToken) {
+      setValidationError('Please complete the verification to continue.');
       setIsLoading(false);
       return;
     }
@@ -97,26 +96,27 @@ export function VideoUrlInput() {
         },
         body: JSON.stringify({ 
           url: inputUrl,
-          captchaToken: captchaToken 
+          captchaToken: verificationToken 
         }),
       });
       
       const data = await response.json();
       
-      // Handle rate limiting
+      // Handle verification requirement
       if (response.status === 429) {
-        setShowCaptcha(true);
-        setRateLimitExceeded(true);
-        setCaptchaToken(null);
-        setValidationError('');
-        setError('Rate limit exceeded. Please complete the CAPTCHA verification to continue.');
-        setIsLoading(false);
-        
-        trackEvent('Rate Limit Exceeded', {
-          url: inputUrl,
-          platform: validation.platform
-        });
-        return;
+        if (data.requiresVerification) {
+          setShowVerification(true);
+          setVerificationToken(null);
+          setValidationError('');
+          setError('Please complete verification to continue.');
+          setIsLoading(false);
+          
+          trackEvent('Verification Required', {
+            url: inputUrl,
+            platform: validation.platform
+          });
+          return;
+        }
       }
       
       if (!response.ok || !data.success) {
@@ -191,27 +191,27 @@ export function VideoUrlInput() {
     }
   };
 
-  const handleCaptchaVerify = (token: string) => {
-    setCaptchaToken(token);
+  const handleVerificationComplete = (token: string) => {
+    setVerificationToken(token);
     setValidationError('');
     
-    trackEvent('CAPTCHA Verified', {
+    trackEvent('Verification Completed', {
       url: inputUrl
     });
   };
 
-  const handleCaptchaError = () => {
-    setCaptchaToken(null);
-    setValidationError('CAPTCHA verification failed. Please try again.');
+  const handleVerificationError = () => {
+    setVerificationToken(null);
+    setValidationError('Verification failed. Please try again.');
     
-    trackEvent('CAPTCHA Failed', {
+    trackEvent('Verification Failed', {
       url: inputUrl
     });
   };
 
-  const handleCaptchaExpire = () => {
-    setCaptchaToken(null);
-    setValidationError('CAPTCHA expired. Please verify again.');
+  const handleVerificationExpire = () => {
+    setVerificationToken(null);
+    setValidationError('Verification expired. Please verify again.');
   };
 
   return (
@@ -244,23 +244,21 @@ export function VideoUrlInput() {
           )}
         </div>
         
-        {/* CAPTCHA Widget */}
-        {showCaptcha && (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        {/* Verification Widget */}
+        {showVerification && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="mb-3">
-              <h3 className="text-sm font-medium text-yellow-800 mb-1">
-                {rateLimitExceeded ? 'Rate Limit Exceeded' : 'Verification Required'}
+              <h3 className="text-sm font-medium text-blue-800 mb-1">
+                Verification Required
               </h3>
-              <p className="text-sm text-yellow-700">
-                {rateLimitExceeded 
-                  ? 'You\'ve made too many requests. Please verify you\'re human to continue.' 
-                  : 'Please complete the verification below to proceed.'}
+              <p className="text-sm text-blue-700">
+                Please complete the verification below to continue.
               </p>
             </div>
             <TurnstileWidget 
-              onVerify={handleCaptchaVerify}
-              onError={handleCaptchaError}
-              onExpire={handleCaptchaExpire}
+              onVerify={handleVerificationComplete}
+              onError={handleVerificationError}
+              onExpire={handleVerificationExpire}
               className=""
             />
           </div>

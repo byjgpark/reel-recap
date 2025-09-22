@@ -68,46 +68,19 @@ export async function verifyCaptchaToken(
 }
 
 /**
- * Check if CAPTCHA is required based on rate limiting
- * @param clientIP - Client IP address
- * @param currentCount - Current request count for the IP
- * @param rateLimit - Rate limit threshold
- * @returns boolean - True if CAPTCHA is required
+ * Verification threshold for cyclical verification pattern
  */
-export function isCaptchaRequired(
-  clientIP: string,
-  currentCount: number,
-  rateLimit: number
+export const VERIFICATION_THRESHOLD = 5; // Trigger verification every 6th request (after 5 free requests)
+
+/**
+ * Check if verification is required based on cyclical pattern
+ * @param requestCount - Current request count for the IP
+ * @param isVerified - Whether the user has completed verification in current cycle
+ * @returns boolean - True if verification is required
+ */
+export function isVerificationRequired(
+  requestCount: number,
+  isVerified: boolean
 ): boolean {
-  // Require CAPTCHA after exceeding rate limit
-  return currentCount >= rateLimit;
-}
-
-/**
- * Progressive CAPTCHA enforcement levels
- */
-export const CAPTCHA_THRESHOLDS = {
-  SOFT_LIMIT: 3,    // Show warning, optional CAPTCHA
-  HARD_LIMIT: 5,    // Require CAPTCHA
-  BLOCK_LIMIT: 10   // Block requests even with CAPTCHA
-} as const;
-
-/**
- * Determine CAPTCHA requirement level
- * @param requestCount - Current request count
- * @returns 'none' | 'optional' | 'required' | 'blocked'
- */
-export function getCaptchaRequirement(
-  requestCount: number
-): 'none' | 'optional' | 'required' | 'blocked' {
-  if (requestCount >= CAPTCHA_THRESHOLDS.BLOCK_LIMIT) {
-    return 'blocked';
-  }
-  if (requestCount >= CAPTCHA_THRESHOLDS.HARD_LIMIT) {
-    return 'required';
-  }
-  if (requestCount >= CAPTCHA_THRESHOLDS.SOFT_LIMIT) {
-    return 'optional';
-  }
-  return 'none';
+  return requestCount >= VERIFICATION_THRESHOLD && !isVerified;
 }

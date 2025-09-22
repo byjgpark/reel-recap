@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyCaptchaToken, getCaptchaRequirement, CAPTCHA_THRESHOLDS } from '@/utils/captcha';
+import { verifyCaptchaToken } from '@/utils/captcha';
 
 interface TranscriptItem {
   text: string;
@@ -20,15 +20,14 @@ interface SupadataTranscriptItem {
   lang: string;
 }
 
-// Rate limiting configuration
-interface RateLimitData {
-  count: number;
-  resetTime: number;
+// Cyclical verification tracking
+interface VerificationData {
+  requestCount: number;
+  isVerified: boolean;
 }
 
-const rateLimitMap = new Map<string, RateLimitData>();
-const RATE_LIMIT = 5; // requests per hour
-const WINDOW_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+const verificationMap = new Map<string, VerificationData>();
+const VERIFICATION_THRESHOLD = 5; // Trigger verification every 6th request (after 5 free requests)
 
 // Validate if URL is a supported platform
 function validateVideoUrl(url: string): { isValid: boolean; platform: string; error?: string } {
@@ -67,45 +66,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     // Parse request body first
     const { url, captchaToken } = await request.json();
     
-    // Extract client IP for rate limiting
+    // Extract client IP for verification tracking
     const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                     request.headers.get('x-real-ip') || 
                     request.headers.get('cf-connecting-ip') || 
                     'unknown';
     
-    // Rate limiting check
-    const now = Date.now();
-    const userLimit = rateLimitMap.get(clientIP) || { count: 0, resetTime: now + WINDOW_MS };
+    // Cyclical verification check
+    const userVerification = verificationMap.get(clientIP) || { requestCount: 0, isVerified: false };
     
-    // Reset counter if window has expired
-    if (now > userLimit.resetTime) {
-      userLimit.count = 0;
-      userLimit.resetTime = now + WINDOW_MS;
-    }
+    // Check if verification is required (every 6th request)
+    const needsVerification = userVerification.requestCount >= VERIFICATION_THRESHOLD && !userVerification.isVerified;
     
-    // Progressive CAPTCHA enforcement
-    const captchaRequirement = getCaptchaRequirement(userLimit.count);
-    
-    // Block requests that exceed absolute limit
-    if (captchaRequirement === 'blocked') {
-      console.log(`[${new Date().toISOString()}] REQUEST BLOCKED - IP: ${clientIP}, Attempts: ${userLimit.count}`);
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: `Too many requests. Please wait before trying again.` 
-        },
-        { status: 429 }
-      );
-    }
-    
-    // Require CAPTCHA verification for high-volume users
-    if (captchaRequirement === 'required') {
+    if (needsVerification) {
       if (!captchaToken) {
-        console.log(`[${new Date().toISOString()}] CAPTCHA REQUIRED - IP: ${clientIP}, Attempts: ${userLimit.count}`);
+        console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}, Request: ${userVerification.requestCount + 1}`);
         return NextResponse.json(
           { 
             success: false, 
-            error: `Rate limit exceeded. Please complete CAPTCHA verification to continue.` 
+            error: `Please complete verification to continue.`,
+            requiresVerification: true
           },
           { status: 429 }
         );
@@ -114,22 +94,32 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       // Verify CAPTCHA token
       const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
       if (!captchaResult.success) {
-        console.log(`[${new Date().toISOString()}] CAPTCHA VERIFICATION FAILED - IP: ${clientIP}`);
+        console.log(`[${new Date().toISOString()}] VERIFICATION FAILED - IP: ${clientIP}`);
         return NextResponse.json(
           { 
             success: false, 
-            error: captchaResult.error || 'CAPTCHA verification failed' 
+            error: captchaResult.error || 'Verification failed' 
           },
           { status: 400 }
         );
       }
       
-      console.log(`[${new Date().toISOString()}] CAPTCHA VERIFIED - IP: ${clientIP}`);
+      // Mark as verified and reset counter for next cycle
+      userVerification.isVerified = true;
+      userVerification.requestCount = 0;
+      console.log(`[${new Date().toISOString()}] VERIFICATION SUCCESSFUL - IP: ${clientIP}`);
     }
     
     // Increment request count
-    userLimit.count++;
-    rateLimitMap.set(clientIP, userLimit);
+    userVerification.requestCount++;
+    
+    // Reset verification status if we've completed a cycle
+    if (userVerification.requestCount > VERIFICATION_THRESHOLD) {
+      userVerification.isVerified = false;
+      userVerification.requestCount = 1; // Reset to 1 for the current request
+    }
+    
+    verificationMap.set(clientIP, userVerification);
 
     if (!url) {
       return NextResponse.json(
@@ -147,8 +137,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       );
     }
     
-    // Log rate limit info for monitoring
-    console.log(`[${new Date().toISOString()}] Rate limit check - IP: ${clientIP}, Count: ${userLimit.count}/${RATE_LIMIT}`);
+    // Log verification info for monitoring
+    console.log(`[${new Date().toISOString()}] Verification check - IP: ${clientIP}, Count: ${userVerification.requestCount}, Verified: ${userVerification.isVerified}`);
 
     // All platforms are now supported via Supadata API
     try {
