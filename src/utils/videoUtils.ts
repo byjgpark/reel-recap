@@ -22,6 +22,7 @@ export function extractTikTokVideoId(url: string): string | null {
   const patterns = [
     /tiktok\.com\/@[\w.-]+\/video\/(\d+)/,
     /vm\.tiktok\.com\/([\w]+)/,
+    /vt\.tiktok\.com\/([\w]+)/,
     /tiktok\.com\/t\/([\w]+)/
   ];
 
