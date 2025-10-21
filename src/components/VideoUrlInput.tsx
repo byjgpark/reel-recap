@@ -10,7 +10,7 @@ import { TurnstileWidget } from './TurnstileWidget';
 
 const SUPPORTED_PLATFORMS = {
   youtube: /^(https?:\/\/)?(www\.)?(youtube\.com\/shorts\/|youtu\.be\/)/,
-  tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)/,
+  tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)/,
   instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/(reel|p)\/[\w-]+/
 };
 
