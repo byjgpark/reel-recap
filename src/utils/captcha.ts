@@ -70,7 +70,7 @@ export async function verifyCaptchaToken(
 /**
  * Verification threshold for cyclical verification pattern
  */
-export const VERIFICATION_THRESHOLD = 5; // Trigger verification every 6th request (after 5 free requests)
+export const VERIFICATION_THRESHOLD = 10; // Trigger verification every 11th request (after 10 free requests)
 
 /**
  * Check if verification is required based on cyclical pattern

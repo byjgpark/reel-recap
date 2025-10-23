@@ -104,6 +104,15 @@ function TranscriptContent() {
 
       const data = await response.json();
       setSummary(data.summary);
+      
+      // Refresh usage data after successful request
+      if (typeof window !== 'undefined' && (window as any).refreshUsageData) {
+        try {
+          (window as any).refreshUsageData();
+        } catch (error) {
+          console.warn('Failed to refresh usage data:', error);
+        }
+      }
     } catch (err) {
       console.error('Error generating summary:', err);
       setError('Failed to generate summary. Please try again.');

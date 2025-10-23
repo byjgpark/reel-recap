@@ -82,7 +82,7 @@ export function VideoUrlInput() {
     
     // Check if verification is required but not completed
     if (showVerification && !verificationToken) {
-      setValidationError('Please complete the verification to continue.');
+      // setValidationError('Please complete the verification to continue.');
       setIsLoading(false);
       return;
     }
@@ -101,6 +101,9 @@ export function VideoUrlInput() {
       });
       
       const data = await response.json();
+
+      console.log("Check response.status", response.status);
+      
       
       // Handle verification requirement
       if (response.status === 429) {
@@ -108,7 +111,7 @@ export function VideoUrlInput() {
           setShowVerification(true);
           setVerificationToken(null);
           setValidationError('');
-          setError('Please complete verification to continue.');
+          // setError('Please complete verification to continue.');
           setIsLoading(false);
           
           trackEvent('Verification Required', {
@@ -164,6 +167,19 @@ export function VideoUrlInput() {
         duration: Math.floor(totalDuration / 1000)
       });
       
+      // Hide verification widget after successful submission
+      setShowVerification(false);
+      setVerificationToken(null);
+      
+      // Refresh usage data after successful request
+      if (typeof window !== 'undefined' && (window as any).refreshUsageData) {
+        try {
+          (window as any).refreshUsageData();
+        } catch (error) {
+          console.warn('Failed to refresh usage data:', error);
+        }
+      }
+      
       // Redirect to transcript page with the video URL
       router.push(`/transcript?url=${encodeURIComponent(inputUrl)}`);
     } catch (error: unknown) {
@@ -192,8 +208,12 @@ export function VideoUrlInput() {
   };
 
   const handleVerificationComplete = (token: string) => {
+
+    console.log("check token", token);
+
     setVerificationToken(token);
     setValidationError('');
+    setError(null); // Clear global error state
     
     trackEvent('Verification Completed', {
       url: inputUrl

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { checkUsageLimit, trackUsage, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest } from '@/lib/usageTracking';
 
 interface SummarizeRequest {
   transcript: string;
@@ -9,6 +11,12 @@ interface SummarizeResponse {
   success: boolean;
   summary?: string;
   error?: string;
+  usageInfo?: {
+    remainingRequests: number;
+    isAuthenticated: boolean;
+    requiresAuth: boolean;
+    message: string;
+  };
 }
 
 // Language mapping for converting language names to codes
@@ -51,9 +59,67 @@ const getLanguagePrompt = (language: string): string => {
   return prompts[language as keyof typeof prompts] || prompts.en;
 };
 
+// Helper function to get user from session
+async function getCurrentUser(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return null;
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return null;
+    }
+    
+    return user;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse<SummarizeResponse>> {
   try {
     const { transcript, language = 'English' }: SummarizeRequest = await request.json();
+    
+    // Extract client IP for usage tracking
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                    request.headers.get('x-real-ip') || 
+                    request.headers.get('cf-connecting-ip') || 
+                    'unknown';
+    
+    // Get current user from session
+    const user = await getCurrentUser(request);
+    const userId = user?.id || null;
+    
+    // Use atomic request processing to check and increment usage in one operation
+    let atomicResult;
+    
+    if (userId) {
+      // Authenticated user - use atomic processing
+      atomicResult = await processAtomicAuthenticatedRequest(userId, 'summary', 'summary-request', clientIP);
+    } else {
+      // Anonymous user - use atomic processing
+      atomicResult = await processAtomicAnonymousRequest(clientIP, 'summary', 'summary-request');
+    }
+    
+    if (!atomicResult.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: atomicResult.message,
+          usageInfo: {
+            remainingRequests: atomicResult.remainingRequests,
+            isAuthenticated: atomicResult.isAuthenticated,
+            requiresAuth: !atomicResult.isAuthenticated,
+            message: atomicResult.message
+          }
+        },
+        { status: 429 }
+      );
+    }
 
     if (!transcript) {
       return NextResponse.json(
@@ -141,7 +207,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
 
     return NextResponse.json({
       success: true,
-      summary
+      summary,
+      usageInfo: {
+        remainingRequests: atomicResult.remainingRequests,
+        isAuthenticated: atomicResult.isAuthenticated,
+        requiresAuth: false,
+        message: atomicResult.isAuthenticated 
+          ? `${atomicResult.remainingRequests} requests remaining today`
+          : `${atomicResult.remainingRequests} free requests remaining`
+      }
     });
   } catch (error: unknown) {
     console.error('Summarization error:', error);

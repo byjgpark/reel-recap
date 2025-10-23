@@ -75,6 +75,15 @@ export function SummarySection() {
       const data = await response.json();
       setSummary(data.summary);
       
+      // Refresh usage data after successful request
+      if (typeof window !== 'undefined' && (window as any).refreshUsageData) {
+        try {
+          (window as any).refreshUsageData();
+        } catch (error) {
+          console.warn('Failed to refresh usage data:', error);
+        }
+      }
+      
       // Track successful summary generation
       trackEvent('Summary Generated Successfully', {
         language: getLanguageName(selectedLanguage),

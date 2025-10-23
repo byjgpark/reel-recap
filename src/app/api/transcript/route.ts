@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyCaptchaToken } from '@/utils/captcha';
+import { supabase } from '@/lib/supabase';
+import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest, checkUsageLimitOnly, incrementUsageAfterSuccess } from '@/lib/usageTracking';
 
 interface TranscriptItem {
   text: string;
@@ -11,6 +13,13 @@ interface TranscriptResponse {
   success: boolean;
   transcript?: TranscriptItem[];
   error?: string;
+  requiresVerification?: boolean;
+  usageInfo?: {
+    remainingRequests: number;
+    isAuthenticated: boolean;
+    requiresAuth: boolean;
+    message: string;
+  };
 }
 
 interface SupadataTranscriptItem {
@@ -20,14 +29,26 @@ interface SupadataTranscriptItem {
   lang: string;
 }
 
-// Cyclical verification tracking
-interface VerificationData {
-  requestCount: number;
-  isVerified: boolean;
-}
+// Helper function to get user from session
+async function getCurrentUser(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return null;
+    }
 
-const verificationMap = new Map<string, VerificationData>();
-const VERIFICATION_THRESHOLD = 5; // Trigger verification every 6th request (after 5 free requests)
+    const token = authHeader.substring(7);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      return null;
+    }
+    
+    return user;
+  } catch {
+    return null;
+  }
+}
 
 // Validate if URL is a supported platform
 function validateVideoUrl(url: string): { isValid: boolean; platform: string; error?: string } {
@@ -66,26 +87,69 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     // Parse request body first
     const { url, captchaToken } = await request.json();
     
-    // Extract client IP for verification tracking
+    // Extract client IP for usage tracking
     const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                     request.headers.get('x-real-ip') || 
                     request.headers.get('cf-connecting-ip') || 
                     'unknown';
     
-    // Cyclical verification check
-    const userVerification = verificationMap.get(clientIP) || { requestCount: 0, isVerified: false };
+    // Get current user from session
+    const user = await getCurrentUser(request);
+    const userId = user?.id || null;
+
+    if (!url) {
+      return NextResponse.json(
+        { success: false, error: 'Video URL is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate the URL
+    const validation = validateVideoUrl(url);
+    if (!validation.isValid) {
+      return NextResponse.json(
+        { success: false, error: validation.error || 'Invalid video URL' },
+        { status: 400 }
+      );
+    }
+
+    // STEP 1: Check usage limits WITHOUT incrementing count
+    const usageCheck = await checkUsageLimitOnly(userId, clientIP);
     
-    // Check if verification is required (every 6th request)
-    const needsVerification = userVerification.requestCount >= VERIFICATION_THRESHOLD && !userVerification.isVerified;
+    if (!usageCheck.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: usageCheck.message,
+          requiresVerification: !userId,
+          usageInfo: {
+            remainingRequests: usageCheck.remainingRequests,
+            isAuthenticated: usageCheck.isAuthenticated,
+            requiresAuth: !userId,
+            message: usageCheck.message
+          }
+        },
+        { status: 429 }
+      );
+    }
+
+    // Check if verification is required for anonymous users near limit
+    const needsVerification = !userId && usageCheck.remainingRequests <= 1;
     
     if (needsVerification) {
       if (!captchaToken) {
-        console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}, Request: ${userVerification.requestCount + 1}`);
+        console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}`);
         return NextResponse.json(
           { 
             success: false, 
             error: `Please complete verification to continue.`,
-            requiresVerification: true
+            requiresVerification: true,
+            usageInfo: {
+              remainingRequests: usageCheck.remainingRequests,
+              isAuthenticated: usageCheck.isAuthenticated,
+              requiresAuth: !userId,
+              message: usageCheck.message
+            }
           },
           { status: 429 }
         );
@@ -104,45 +168,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         );
       }
       
-      // Mark as verified and reset counter for next cycle
-      userVerification.isVerified = true;
-      userVerification.requestCount = 0;
       console.log(`[${new Date().toISOString()}] VERIFICATION SUCCESSFUL - IP: ${clientIP}`);
     }
-    
-    // Increment request count
-    userVerification.requestCount++;
-    
-    // Reset verification status if we've completed a cycle
-    if (userVerification.requestCount > VERIFICATION_THRESHOLD) {
-      userVerification.isVerified = false;
-      userVerification.requestCount = 1; // Reset to 1 for the current request
-    }
-    
-    verificationMap.set(clientIP, userVerification);
 
-    if (!url) {
-      return NextResponse.json(
-        { success: false, error: 'Video URL is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate the URL
-    const validation = validateVideoUrl(url);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        { success: false, error: validation.error || 'Invalid video URL' },
-        { status: 400 }
-      );
-    }
-    
-    // Log verification info for monitoring
-    console.log(`[${new Date().toISOString()}] Verification check - IP: ${clientIP}, Count: ${userVerification.requestCount}, Verified: ${userVerification.isVerified}`);
-
-    // All platforms are now supported via Supadata API
+    // STEP 2: Make the API call to Supadata
     try {
-        // Fetch transcript using Supadata API
         const supadataApiKey = process.env.SUPADATA_API_KEY;
 
         if (!supadataApiKey) {
@@ -162,6 +192,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.log(`[${new Date().toISOString()}] API CALL FAILED - IP: ${clientIP}, URL: ${url}, Status: ${response.status}`);
+          // API call failed - DO NOT increment usage count
           return NextResponse.json(
             { success: false, error: errorData.message || `Failed to fetch transcript (Status: ${response.status})` },
             { status: response.status }
@@ -173,6 +204,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         console.log("check data", data)
         
         if (!data.content || data.content.length === 0) {
+          // No transcript available - DO NOT increment usage count
           return NextResponse.json(
             { success: false, error: 'No transcript available for this video' },
             { status: 404 }
@@ -189,6 +221,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         const MAX_DURATION_SECONDS = 180; // 3 minutes
 
         if (durationInSeconds > MAX_DURATION_SECONDS) {
+          // Video too long - DO NOT increment usage count
           return NextResponse.json(
             { 
               success: false, 
@@ -196,6 +229,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             },
             { status: 400 }
           );
+        }
+
+        // STEP 3: API call was successful - NOW increment usage count
+        const incrementResult = await incrementUsageAfterSuccess(
+          userId,
+          clientIP,
+          'transcript',
+          url
+        );
+
+        if (!incrementResult.success) {
+          console.error('Failed to increment usage after successful API call:', incrementResult.error);
+          // Even if usage increment fails, we still return the successful transcript
+          // This prevents double-charging the user
         }
 
         console.log(`[${new Date().toISOString()}] TRANSCRIPT SUCCESS - IP: ${clientIP}, URL: ${url}, Duration: ${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}`);
@@ -206,18 +253,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             text: item.text,
             duration: item.duration,
             offset: item.offset
-          }))
+          })),
+          usageInfo: {
+            remainingRequests: incrementResult.success ? incrementResult.remainingRequests : usageCheck.remainingRequests - 1,
+            isAuthenticated: !!userId,
+            requiresAuth: false,
+            message: incrementResult.success ? incrementResult.message : usageCheck.message
+          }
         });
-    } catch (transcriptError: unknown) {
-      console.error('Transcript extraction error:', transcriptError);
-      
+
+    } catch (error) {
+      console.error('Error fetching transcript:', error);
+      // API call failed due to error - DO NOT increment usage count
       return NextResponse.json(
-        { success: false, error: 'Failed to extract transcript. Please try again.' },
+        { success: false, error: 'Failed to fetch transcript' },
         { status: 500 }
       );
     }
-  } catch (error: unknown) {
-    console.error('API error:', error);
+
+  } catch (error) {
+    console.error('Error processing request:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

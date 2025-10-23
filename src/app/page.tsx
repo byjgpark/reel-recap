@@ -1,6 +1,8 @@
 'use client';
 
 import { VideoUrlInput } from '@/components/VideoUrlInput';
+import { AuthButton } from '@/components/AuthButton';
+import { UsageDisplay } from '@/components/UsageDisplay';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';
 
@@ -26,7 +28,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            {/* <ThemeToggle /> */}
+            {/* <AuthButton /> */}
           </div>
         </div>
       </header>
@@ -58,6 +60,9 @@ export default function Home() {
         )}
 
         <div className="space-y-10">
+          {/* Usage Display */}
+          <UsageDisplay className="max-w-2xl mx-auto" />
+          
           <VideoUrlInput />
           
           {/* <TranscriptDisplay /> */}
