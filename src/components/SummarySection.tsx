@@ -4,6 +4,11 @@ import { Sparkles, Globe } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { trackEvent } from '@/utils/mixpanel';
 
+// Add interface for window object with refreshUsageData
+interface WindowWithRefresh extends Window {
+  refreshUsageData?: () => void;
+}
+
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
   { code: 'es', name: 'Spanish' },
@@ -74,6 +79,18 @@ export function SummarySection() {
 
       const data = await response.json();
       setSummary(data.summary);
+      
+      // Refresh usage data after successful request
+      if (typeof window !== 'undefined') {
+        const windowWithRefresh = window as WindowWithRefresh;
+        if (windowWithRefresh.refreshUsageData) {
+          try {
+            windowWithRefresh.refreshUsageData();
+          } catch (error) {
+            console.warn('Failed to refresh usage data:', error);
+          }
+        }
+      }
       
       // Track successful summary generation
       trackEvent('Summary Generated Successfully', {

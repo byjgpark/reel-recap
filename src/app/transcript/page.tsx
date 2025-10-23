@@ -28,6 +28,11 @@ const getLanguageName = (code: string): string => {
   return language ? language.name : 'English';
 };
 
+// Add interface for window object with refreshUsageData
+interface WindowWithRefresh extends Window {
+  refreshUsageData?: () => void;
+}
+
 function TranscriptContent() {
   const searchParams = useSearchParams();
   const videoUrl = searchParams.get('url');
@@ -104,6 +109,18 @@ function TranscriptContent() {
 
       const data = await response.json();
       setSummary(data.summary);
+      
+      // Refresh usage data after successful request
+      if (typeof window !== 'undefined') {
+        const windowWithRefresh = window as WindowWithRefresh;
+        if (windowWithRefresh.refreshUsageData) {
+          try {
+            windowWithRefresh.refreshUsageData();
+          } catch (error) {
+            console.warn('Failed to refresh usage data:', error);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error generating summary:', err);
       setError('Failed to generate summary. Please try again.');

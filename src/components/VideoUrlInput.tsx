@@ -8,6 +8,11 @@ import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { trackEvent } from '@/utils/mixpanel';
 import { TurnstileWidget } from './TurnstileWidget';
 
+// Add interface for window object with refreshUsageData
+interface WindowWithRefresh extends Window {
+  refreshUsageData?: () => void;
+}
+
 const SUPPORTED_PLATFORMS = {
   youtube: /^(https?:\/\/)?(www\.)?(youtube\.com\/shorts\/|youtu\.be\/)/,
   tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)/,
@@ -82,7 +87,7 @@ export function VideoUrlInput() {
     
     // Check if verification is required but not completed
     if (showVerification && !verificationToken) {
-      setValidationError('Please complete the verification to continue.');
+      // setValidationError('Please complete the verification to continue.');
       setIsLoading(false);
       return;
     }
@@ -101,6 +106,9 @@ export function VideoUrlInput() {
       });
       
       const data = await response.json();
+
+      console.log("Check response.status", response.status);
+      
       
       // Handle verification requirement
       if (response.status === 429) {
@@ -108,7 +116,7 @@ export function VideoUrlInput() {
           setShowVerification(true);
           setVerificationToken(null);
           setValidationError('');
-          setError('Please complete verification to continue.');
+          // setError('Please complete verification to continue.');
           setIsLoading(false);
           
           trackEvent('Verification Required', {
@@ -164,6 +172,22 @@ export function VideoUrlInput() {
         duration: Math.floor(totalDuration / 1000)
       });
       
+      // Hide verification widget after successful submission
+      setShowVerification(false);
+      setVerificationToken(null);
+      
+      // Refresh usage data after successful request
+      if (typeof window !== 'undefined') {
+        const windowWithRefresh = window as WindowWithRefresh;
+        if (windowWithRefresh.refreshUsageData) {
+          try {
+            windowWithRefresh.refreshUsageData();
+          } catch (error) {
+            console.warn('Failed to refresh usage data:', error);
+          }
+        }
+      }
+      
       // Redirect to transcript page with the video URL
       router.push(`/transcript?url=${encodeURIComponent(inputUrl)}`);
     } catch (error: unknown) {
@@ -194,6 +218,7 @@ export function VideoUrlInput() {
   const handleVerificationComplete = (token: string) => {
     setVerificationToken(token);
     setValidationError('');
+    setError(null); // Clear global error state
     
     trackEvent('Verification Completed', {
       url: inputUrl
