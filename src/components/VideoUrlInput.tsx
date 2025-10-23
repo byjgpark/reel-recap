@@ -8,6 +8,11 @@ import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { trackEvent } from '@/utils/mixpanel';
 import { TurnstileWidget } from './TurnstileWidget';
 
+// Add interface for window object with refreshUsageData
+interface WindowWithRefresh extends Window {
+  refreshUsageData?: () => void;
+}
+
 const SUPPORTED_PLATFORMS = {
   youtube: /^(https?:\/\/)?(www\.)?(youtube\.com\/shorts\/|youtu\.be\/)/,
   tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)/,
@@ -172,11 +177,14 @@ export function VideoUrlInput() {
       setVerificationToken(null);
       
       // Refresh usage data after successful request
-      if (typeof window !== 'undefined' && (window as any).refreshUsageData) {
-        try {
-          (window as any).refreshUsageData();
-        } catch (error) {
-          console.warn('Failed to refresh usage data:', error);
+      if (typeof window !== 'undefined') {
+        const windowWithRefresh = window as WindowWithRefresh;
+        if (windowWithRefresh.refreshUsageData) {
+          try {
+            windowWithRefresh.refreshUsageData();
+          } catch (error) {
+            console.warn('Failed to refresh usage data:', error);
+          }
         }
       }
       

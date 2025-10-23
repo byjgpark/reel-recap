@@ -1,7 +1,6 @@
 'use client';
 
 import { VideoUrlInput } from '@/components/VideoUrlInput';
-import { AuthButton } from '@/components/AuthButton';
 import { UsageDisplay } from '@/components/UsageDisplay';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';

@@ -1,8 +1,13 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Activity, Clock, User, Users, RefreshCw } from 'lucide-react';
+
+// Add interface for window object with refreshUsageDisplay
+interface WindowWithRefresh extends Window {
+  refreshUsageDisplay?: () => void;
+}
 
 interface UsageInfo {
   remainingRequests: number;
@@ -24,13 +29,11 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
   const [mounted, setMounted] = useState(false);
   const [currentUsageInfo, setCurrentUsageInfo] = useState<UsageInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Fetch usage data from API
-  const fetchUsageData = async () => {
+  const fetchUsageData = useCallback(async () => {
     try {
       setIsLoading(true);
-      setError(null);
       
       const response = await fetch('/api/usage', {
         method: 'GET',
@@ -51,11 +54,10 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
       } else {
         throw new Error(data.error || 'Failed to fetch usage data');
       }
-    } catch (err) {
-      console.error('Error fetching usage data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch usage data');
+    } catch (error) {
+      console.error('Error fetching usage data:', error);
       
-      // Fallback to default values on error
+      // Fallback to default usage info based on auth state
       const fallbackUsageInfo: UsageInfo = {
         remainingRequests: user ? 50 : 10,
         isAuthenticated: !!user,
@@ -66,7 +68,7 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, onUsageUpdate]);
 
   useEffect(() => {
     setMounted(true);
@@ -83,22 +85,23 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
         fetchUsageData();
       }
     }
-  }, [mounted, usageInfo, user]);
+  }, [mounted, usageInfo, fetchUsageData]);
 
   // Refresh usage data (can be called externally)
-  const refreshUsageData = () => {
+  const refreshUsageData = useCallback(() => {
     if (!usageInfo) {
       fetchUsageData();
     }
-  };
+  }, [usageInfo, fetchUsageData]);
 
   // Expose refresh function globally for other components
   useEffect(() => {
-    (window as any).refreshUsageDisplay = refreshUsageData;
+    const windowWithRefresh = window as WindowWithRefresh;
+    windowWithRefresh.refreshUsageDisplay = refreshUsageData;
     return () => {
-      delete (window as any).refreshUsageDisplay;
+      delete windowWithRefresh.refreshUsageDisplay;
     };
-  }, []);
+  }, [refreshUsageData]);
 
   if (!mounted) {
     return null;

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createBrowserClient } from '@/utils/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,9 +9,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 export const supabase = createBrowserClient();
 
 // Lazy-loaded admin client - only created when actually needed
-let _supabaseAdmin: any = null;
+let _supabaseAdmin: SupabaseClient | null = null;
 
-export const supabaseAdmin = new Proxy({} as any, {
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(target, prop) {
     // Only create the admin client when it's actually accessed
     if (!_supabaseAdmin) {
@@ -30,7 +31,7 @@ export const supabaseAdmin = new Proxy({} as any, {
       console.log('✅ supabaseAdmin created successfully');
     }
     
-    return _supabaseAdmin[prop];
+    return ((_supabaseAdmin as unknown) as Record<string | symbol, unknown>)[prop];
   }
 });
 

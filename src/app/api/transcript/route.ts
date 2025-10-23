@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyCaptchaToken } from '@/utils/captcha';
 import { supabase } from '@/lib/supabase';
-import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest, checkUsageLimitOnly, incrementUsageAfterSuccess } from '@/lib/usageTracking';
+import { checkUsageLimitOnly, incrementUsageAfterSuccess } from '@/lib/usageTracking';
 
 interface TranscriptItem {
   text: string;
