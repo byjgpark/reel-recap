@@ -216,9 +216,6 @@ export function VideoUrlInput() {
   };
 
   const handleVerificationComplete = (token: string) => {
-
-    console.log("check token", token);
-
     setVerificationToken(token);
     setValidationError('');
     setError(null); // Clear global error state
