@@ -246,13 +246,16 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
         </div>
       </div>
       
-      {/* Reset timer for authenticated users */}
-      {isAuthenticated && (
-        <div className="mt-2 flex items-center space-x-1 text-xs text-gray-500">
-          <Clock className="h-3 w-3" />
-          <span>Resets daily at midnight UTC</span>
-        </div>
-      )}
+      {/* Reset timer */}
+      <div className="mt-2 flex items-center space-x-1 text-xs text-gray-500">
+        <Clock className="h-3 w-3" />
+        <span>
+          {isAuthenticated 
+            ? 'Resets daily at midnight UTC' 
+            : 'The 10 free requests reset after 24 hours'
+          }
+        </span>
+      </div>
     </div>
   );
 }
