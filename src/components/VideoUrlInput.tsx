@@ -13,6 +13,19 @@ interface WindowWithRefresh extends Window {
   refreshUsageData?: () => void;
 }
 
+interface UsageInfo {
+  remainingRequests: number;
+  isAuthenticated: boolean;
+  requiresAuth: boolean;
+  message: string;
+  totalRequests?: number;
+  dailyLimit?: number;
+}
+
+interface VideoUrlInputProps {
+  usageInfo?: UsageInfo | null;
+}
+
 const SUPPORTED_PLATFORMS = {
   youtube: /^(https?:\/\/)?(www\.)?(youtube\.com\/shorts\/|youtu\.be\/)/,
   tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)/,
@@ -36,7 +49,7 @@ function validateVideoUrl(url: string): { isValid: boolean; platform?: string; e
   };
 }
 
-export function VideoUrlInput() {
+export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
   const router = useRouter();
   const [inputUrl, setInputUrl] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -289,9 +302,29 @@ export function VideoUrlInput() {
           </div>
         )}
         
+        {/* Usage limit warning */}
+        {usageInfo && usageInfo.remainingRequests === 0 && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800 mb-1">
+                  Request Limit Reached
+                </h3>
+                <p className="text-sm text-red-700">
+                  {usageInfo.isAuthenticated 
+                    ? "You've reached your daily limit. Please try again tomorrow."
+                    : "You've used all 10 free requests. Please wait 24 hours for reset."
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
-          disabled={isLoading || !inputUrl.trim()}
+          disabled={isLoading || !inputUrl.trim() || (usageInfo?.remainingRequests === 0)}
           className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           {isLoading ? (
@@ -299,6 +332,8 @@ export function VideoUrlInput() {
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
               <span>Processing...</span>
             </div>
+          ) : usageInfo?.remainingRequests === 0 ? (
+            "Limit Reached"
           ) : (
             "Extract Transcript"
           )}

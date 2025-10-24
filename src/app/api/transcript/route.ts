@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyCaptchaToken } from '@/utils/captcha';
 import { supabase } from '@/lib/supabase';
-import { checkUsageLimitOnly, incrementUsageAfterSuccess } from '@/lib/usageTracking';
+import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest } from '@/lib/usageTracking';
 
 interface TranscriptItem {
   text: string;
@@ -96,6 +96,109 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     // Get current user from session
     const user = await getCurrentUser(request);
     const userId = user?.id || null;
+    
+    // Process request atomically based on user authentication
+    let atomicResult;
+    
+    if (userId) {
+      // Authenticated user - use atomic processing
+      atomicResult = await processAtomicAuthenticatedRequest(
+        userId,
+        'transcript',
+        url,
+        clientIP
+      );
+    } else {
+      // Anonymous user - check if verification is needed first
+      const usageCheck = await checkUsageLimit(userId, clientIP);
+      
+      if (!usageCheck.allowed) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: usageCheck.message,
+            requiresVerification: usageCheck.requiresAuth,
+            usageInfo: {
+              remainingRequests: usageCheck.remainingRequests,
+              isAuthenticated: usageCheck.isAuthenticated,
+              requiresAuth: usageCheck.requiresAuth,
+              message: usageCheck.message
+            }
+          },
+          { status: 429 }
+        );
+      }
+      
+      // Check if verification is required for anonymous users near limit
+      const needsVerification = usageCheck.remainingRequests <= 1;
+      
+      if (needsVerification) {
+        if (!captchaToken) {
+          console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}`);
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: `Please complete verification to continue.`,
+              requiresVerification: true,
+              usageInfo: {
+                remainingRequests: usageCheck.remainingRequests,
+                isAuthenticated: usageCheck.isAuthenticated,
+                requiresAuth: usageCheck.requiresAuth,
+                message: usageCheck.message
+              }
+            },
+            { status: 429 }
+          );
+        }
+        
+        // Verify CAPTCHA token
+        const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
+        if (!captchaResult.success) {
+          console.log(`[${new Date().toISOString()}] VERIFICATION FAILED - IP: ${clientIP}`);
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: captchaResult.error || 'Verification failed' 
+            },
+            { status: 400 }
+          );
+        }
+        
+        console.log(`[${new Date().toISOString()}] VERIFICATION SUCCESSFUL - IP: ${clientIP}`);
+        
+        // Use CAPTCHA-verified processing for verified requests
+        atomicResult = await processCaptchaVerifiedRequest(
+          clientIP,
+          'transcript',
+          url
+        );
+      } else {
+        // Process normal anonymous request atomically
+        atomicResult = await processAtomicAnonymousRequest(
+          clientIP,
+          'transcript',
+          url
+        );
+      }
+    }
+    
+    // Check if atomic processing failed
+    if (!atomicResult.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: atomicResult.message,
+          requiresVerification: !userId,
+          usageInfo: {
+            remainingRequests: atomicResult.remainingRequests,
+            isAuthenticated: !!userId,
+            requiresAuth: !userId,
+            message: atomicResult.message
+          }
+        },
+        { status: 429 }
+      );
+    }
 
     if (!url) {
       return NextResponse.json(
@@ -113,66 +216,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       );
     }
 
-    // STEP 1: Check usage limits WITHOUT incrementing count
-    const usageCheck = await checkUsageLimitOnly(userId, clientIP);
-    
-    if (!usageCheck.success) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: usageCheck.message,
-          requiresVerification: !userId,
-          usageInfo: {
-            remainingRequests: usageCheck.remainingRequests,
-            isAuthenticated: usageCheck.isAuthenticated,
-            requiresAuth: !userId,
-            message: usageCheck.message
-          }
-        },
-        { status: 429 }
-      );
-    }
-
-    // Check if verification is required for anonymous users near limit
-    const needsVerification = !userId && usageCheck.remainingRequests <= 1;
-    
-    if (needsVerification) {
-      if (!captchaToken) {
-        console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}`);
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: `Please complete verification to continue.`,
-            requiresVerification: true,
-            usageInfo: {
-              remainingRequests: usageCheck.remainingRequests,
-              isAuthenticated: usageCheck.isAuthenticated,
-              requiresAuth: !userId,
-              message: usageCheck.message
-            }
-          },
-          { status: 429 }
-        );
-      }
-      
-      // Verify CAPTCHA token
-      const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
-      if (!captchaResult.success) {
-        console.log(`[${new Date().toISOString()}] VERIFICATION FAILED - IP: ${clientIP}`);
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: captchaResult.error || 'Verification failed' 
-          },
-          { status: 400 }
-        );
-      }
-      
-      console.log(`[${new Date().toISOString()}] VERIFICATION SUCCESSFUL - IP: ${clientIP}`);
-    }
-
-    // STEP 2: Make the API call to Supadata
     try {
+        // Fetch transcript using Supadata API
         const supadataApiKey = process.env.SUPADATA_API_KEY;
 
         if (!supadataApiKey) {
@@ -192,7 +237,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.log(`[${new Date().toISOString()}] API CALL FAILED - IP: ${clientIP}, URL: ${url}, Status: ${response.status}`);
-          // API call failed - DO NOT increment usage count
           return NextResponse.json(
             { success: false, error: errorData.message || `Failed to fetch transcript (Status: ${response.status})` },
             { status: response.status }
@@ -200,11 +244,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         }
 
         const data = await response.json();
-
-        console.log("check data", data)
         
         if (!data.content || data.content.length === 0) {
-          // No transcript available - DO NOT increment usage count
           return NextResponse.json(
             { success: false, error: 'No transcript available for this video' },
             { status: 404 }
@@ -221,7 +262,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         const MAX_DURATION_SECONDS = 180; // 3 minutes
 
         if (durationInSeconds > MAX_DURATION_SECONDS) {
-          // Video too long - DO NOT increment usage count
           return NextResponse.json(
             { 
               success: false, 
@@ -229,20 +269,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             },
             { status: 400 }
           );
-        }
-
-        // STEP 3: API call was successful - NOW increment usage count
-        const incrementResult = await incrementUsageAfterSuccess(
-          userId,
-          clientIP,
-          'transcript',
-          url
-        );
-
-        if (!incrementResult.success) {
-          console.error('Failed to increment usage after successful API call:', incrementResult.error);
-          // Even if usage increment fails, we still return the successful transcript
-          // This prevents double-charging the user
         }
 
         console.log(`[${new Date().toISOString()}] TRANSCRIPT SUCCESS - IP: ${clientIP}, URL: ${url}, Duration: ${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}`);
@@ -255,24 +281,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             offset: item.offset
           })),
           usageInfo: {
-            remainingRequests: incrementResult.success ? incrementResult.remainingRequests : usageCheck.remainingRequests - 1,
-            isAuthenticated: !!userId,
+            remainingRequests: atomicResult.remainingRequests,
+            isAuthenticated: atomicResult.isAuthenticated,
             requiresAuth: false,
-            message: incrementResult.success ? incrementResult.message : usageCheck.message
+            message: atomicResult.isAuthenticated 
+              ? `${atomicResult.remainingRequests} requests remaining today`
+              : `${atomicResult.remainingRequests} free requests remaining`
           }
         });
-
-    } catch (error) {
-      console.error('Error fetching transcript:', error);
-      // API call failed due to error - DO NOT increment usage count
+    } catch (transcriptError: unknown) {
+      console.error('Transcript extraction error:', transcriptError);
+      
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch transcript' },
+        { success: false, error: 'Failed to extract transcript. Please try again.' },
         { status: 500 }
       );
     }
-
-  } catch (error) {
-    console.error('Error processing request:', error);
+  } catch (error: unknown) {
+    console.error('API error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
