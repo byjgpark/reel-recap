@@ -76,9 +76,9 @@ export function SummarySection() {
       setSummary(data.summary);
       
       // Refresh usage data after successful request
-      if (typeof window !== 'undefined' && (window as any).refreshUsageData) {
+      if (typeof window !== 'undefined' && 'refreshUsageData' in window && typeof (window as Window & { refreshUsageData: () => void }).refreshUsageData === 'function') {
         try {
-          (window as any).refreshUsageData();
+          (window as Window & { refreshUsageData: () => void }).refreshUsageData();
         } catch (error) {
           console.warn('Failed to refresh usage data:', error);
         }
