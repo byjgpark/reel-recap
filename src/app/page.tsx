@@ -1,12 +1,23 @@
 'use client';
 
+import { useState } from 'react';
 import { VideoUrlInput } from '@/components/VideoUrlInput';
 import { UsageDisplay } from '@/components/UsageDisplay';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';
 
+interface UsageInfo {
+  remainingRequests: number;
+  isAuthenticated: boolean;
+  requiresAuth: boolean;
+  message: string;
+  totalRequests?: number;
+  dailyLimit?: number;
+}
+
 export default function Home() {
   const { error } = useStore();
+  const [usageInfo, setUsageInfo] = useState<UsageInfo | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
@@ -60,9 +71,12 @@ export default function Home() {
 
         <div className="space-y-10">
           {/* Usage Display */}
-          <UsageDisplay className="max-w-2xl mx-auto" />
+          <UsageDisplay 
+            className="max-w-2xl mx-auto" 
+            onUsageUpdate={setUsageInfo}
+          />
           
-          <VideoUrlInput />
+          <VideoUrlInput usageInfo={usageInfo} />
           
           {/* <TranscriptDisplay /> */}
           

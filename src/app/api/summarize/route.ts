@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { processAtomicAuthenticatedRequest, processAtomicAnonymousRequest } from '@/lib/usageTracking';
+import { checkUsageLimit, trackUsage, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest } from '@/lib/usageTracking';
 
 interface SummarizeRequest {
   transcript: string;

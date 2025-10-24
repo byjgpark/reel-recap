@@ -207,7 +207,7 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
           {!isAuthenticated && remainingRequests <= 2 && remainingRequests > 0 && (
             <div className="mt-2">
               <p className="text-xs text-orange-700">
-                ⚠️ Running low on free requests. Consider signing in for more!
+                ⚠️ Running low on free requests.
               </p>
             </div>
           )}
@@ -246,16 +246,13 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
         </div>
       </div>
       
-      {/* Reset timer */}
-      <div className="mt-2 flex items-center space-x-1 text-xs text-gray-500">
-        <Clock className="h-3 w-3" />
-        <span>
-          {isAuthenticated 
-            ? 'Resets daily at midnight UTC' 
-            : 'The 10 free requests reset after 24 hours'
-          }
-        </span>
-      </div>
+      {/* Reset timer for authenticated users */}
+      {isAuthenticated && (
+        <div className="mt-2 flex items-center space-x-1 text-xs text-gray-500">
+          <Clock className="h-3 w-3" />
+          <span>Resets daily at midnight UTC</span>
+        </div>
+      )}
     </div>
   );
 }

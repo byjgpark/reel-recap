@@ -54,8 +54,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<UsageStats
     
     // Get usage statistics for display purposes
     const usageCheck = await getUsageStatsForDisplay(userId, clientIP);
-
-    console.log("check usageCheck:", usageCheck);
     
     // Calculate additional stats for authenticated users
     let totalRequests = 0;

@@ -9,33 +9,19 @@ export async function GET(request: NextRequest) {
   const errorDescription = searchParams.get('error_description');
   const next = searchParams.get('next') ?? '/';
 
-  console.log('🔄 Auth callback hit!');
-  console.log('Full callback URL:', request.url);
-  console.log('Request URL object:', {
-    href: requestUrl.href,
-    origin: requestUrl.origin,
-    pathname: requestUrl.pathname,
-    search: requestUrl.search,
-    hash: requestUrl.hash
+  // Essential logging for production monitoring
+  console.log('Auth callback processed:', { 
+    hasCode: !!code, 
+    hasError: !!error, 
+    errorType: error || undefined 
   });
-  console.log('Search params:', searchParams.toString());
-  console.log('All search params:');
-  for (const [key, value] of searchParams.entries()) {
-    console.log(`  ${key}: ${value}`);
-  }
-  console.log('Origin:', origin);
-  console.log('Code:', code);
-  console.log('Error:', error);
-  console.log('Error Description:', errorDescription);
-  console.log('Next:', next);
   
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    console.log("check origin =", origin, " next=", next, " error=", error);
-
     if (!error) {
+      console.log('Auth session exchange successful');
       const forwardedHost = request.headers.get('x-forwarded-host');
       const isLocalEnv = process.env.NODE_ENV === 'development';
 
@@ -46,9 +32,12 @@ export async function GET(request: NextRequest) {
       } else {
         return NextResponse.redirect(`${origin}${next}`);
       }
+    } else {
+      console.log('Auth session exchange failed:', error);
     }
   }
 
   // return the user to an error page with instructions
+  console.log('Auth callback failed - redirecting to error page');
   return NextResponse.redirect(`${origin}/auth/auth-code-error`);
 }

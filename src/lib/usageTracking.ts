@@ -530,11 +530,10 @@ export async function processCaptchaVerifiedRequest(
       p_ip_address: ipAddress,
       p_action: action,
       p_video_url: videoUrl,
-      p_anonymous_limit: ANONYMOUS_LIMIT,
       p_reset_interval_hours: RESET_INTERVAL_HOURS
     });
 
-    if (error) {
+    if (error) { 
       console.error('CAPTCHA-verified request processing error:', error);
       return {
         success: false,
