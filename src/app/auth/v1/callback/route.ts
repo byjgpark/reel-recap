@@ -6,7 +6,6 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = requestUrl;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
-  const errorDescription = searchParams.get('error_description');
   const next = searchParams.get('next') ?? '/';
 
   // Essential logging for production monitoring
