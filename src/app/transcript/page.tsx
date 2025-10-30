@@ -6,6 +6,7 @@ import { Copy, AlertCircle, Sparkles, Globe } from 'lucide-react';
 import { VideoThumbnail } from '@/components/VideoThumbnail';
 import { useStore } from '@/store/useStore';
 import Link from 'next/link';
+import { getApiHeaders } from '@/utils/auth';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -87,11 +88,10 @@ function TranscriptContent() {
       // Extract text content without timestamps from transcript
       const transcriptText = transcript.map(line => line.text).join(' ');
       
+      const headers = await getApiHeaders();
       const response = await fetch('/api/summarize', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           transcript: transcriptText,
           language: getLanguageName(selectedLanguage),

@@ -1,3 +1,17 @@
+-- Helper function to safely cast IP address to inet type
+CREATE OR REPLACE FUNCTION public.safe_ip_cast(ip_text text)
+RETURNS INET AS $$
+BEGIN
+  -- Try to cast the IP address to inet
+  BEGIN
+    RETURN ip_text::inet;
+  EXCEPTION WHEN OTHERS THEN
+    -- If casting fails (e.g., 'unknown'), return localhost
+    RETURN '0.0.0.0'::inet;
+  END;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER;
+
 -- Create function to handle new user registration
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -18,6 +32,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+
+
 -- Function to check anonymous usage limits without incrementing
 CREATE OR REPLACE FUNCTION check_anonymous_usage_limit(
   p_ip_address TEXT,
@@ -34,7 +50,7 @@ BEGIN
   -- Get anonymous usage record
   SELECT * INTO v_usage_record
   FROM anonymous_usage
-  WHERE ip_address = p_ip_address::inet;
+  WHERE ip_address = public.safe_ip_cast(p_ip_address);
   
   -- If no record exists, user has full limit available
   IF NOT FOUND THEN
@@ -83,13 +99,13 @@ BEGIN
   -- Get or create anonymous usage record with row-level locking
   SELECT * INTO v_usage_record
   FROM anonymous_usage
-  WHERE ip_address = p_ip_address::inet
+  WHERE ip_address = public.safe_ip_cast(p_ip_address)
   FOR UPDATE;
   
   -- If no record exists, create one
   IF NOT FOUND THEN
     INSERT INTO anonymous_usage (ip_address, request_count, last_request, created_at)
-    VALUES (p_ip_address::inet, 1, v_now, v_now)
+    VALUES (public.safe_ip_cast(p_ip_address), 1, v_now, v_now)
     RETURNING * INTO v_usage_record;
     
     v_remaining := p_anonymous_limit - 1;
@@ -102,7 +118,7 @@ BEGIN
       UPDATE anonymous_usage
       SET request_count = 1,
           last_request = v_now
-      WHERE ip_address = p_ip_address::inet;
+      WHERE ip_address = public.safe_ip_cast(p_ip_address);
       
       v_remaining := p_anonymous_limit - 1;
     ELSE
@@ -110,7 +126,7 @@ BEGIN
       UPDATE anonymous_usage
       SET request_count = request_count + 1,
           last_request = v_now
-      WHERE ip_address = p_ip_address::inet;
+      WHERE ip_address = public.safe_ip_cast(p_ip_address);
       
       v_remaining := p_anonymous_limit - (v_usage_record.request_count + 1);
     END IF;
@@ -118,7 +134,7 @@ BEGIN
   
   -- Log the successful usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (NULL, p_ip_address::inet, p_action, p_video_url, 'success', v_now);
+  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
   
   -- Return success with updated remaining count
   RETURN QUERY SELECT TRUE, v_remaining,
@@ -132,7 +148,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Function to check authenticated user usage limits without incrementing
 CREATE OR REPLACE FUNCTION check_authenticated_usage_limit(
   p_user_id UUID,
-  p_daily_limit INTEGER DEFAULT 50,
+  p_daily_limit INTEGER DEFAULT 20,
   p_reset_interval_hours INTEGER DEFAULT 24
 )
 RETURNS TABLE(allowed BOOLEAN, remaining_requests INTEGER, message TEXT) AS $$
@@ -154,7 +170,7 @@ BEGIN
   END IF;
   
   -- Check if reset is needed (24 hours passed)
-  v_hours_since_last := EXTRACT(EPOCH FROM (v_now - v_usage_record.last_request)) / 3600;
+  v_hours_since_last := EXTRACT(EPOCH FROM (v_now - v_usage_record.last_reset)) / 3600;
   
   IF v_hours_since_last >= p_reset_interval_hours THEN
     -- Reset would happen, so user has full limit
@@ -162,8 +178,8 @@ BEGIN
     RETURN;
   END IF;
   
-  -- Calculate remaining requests
-  v_remaining := p_daily_limit - v_usage_record.request_count;
+  -- Calculate remaining requests (transcript_count + summary_count)
+  v_remaining := p_daily_limit - (COALESCE(v_usage_record.transcript_count, 0) + COALESCE(v_usage_record.summary_count, 0));
   
   -- Check if user has exceeded limit
   IF v_remaining <= 0 THEN
@@ -182,7 +198,7 @@ CREATE OR REPLACE FUNCTION increment_authenticated_usage(
   p_action TEXT,
   p_video_url TEXT,
   p_ip_address TEXT,
-  p_daily_limit INTEGER DEFAULT 50,
+  p_daily_limit INTEGER DEFAULT 20,
   p_reset_interval_hours INTEGER DEFAULT 24
 )
 RETURNS TABLE(success BOOLEAN, remaining_requests INTEGER, message TEXT) AS $$
@@ -200,37 +216,61 @@ BEGIN
   
   -- If no record exists, create one
   IF NOT FOUND THEN
-    INSERT INTO user_usage (user_id, request_count, last_request, created_at)
-    VALUES (p_user_id, 1, v_now, v_now)
-    RETURNING * INTO v_usage_record;
+    IF p_action = 'transcript' THEN
+      INSERT INTO user_usage (user_id, transcript_count, summary_count, last_reset, created_at)
+      VALUES (p_user_id, 1, 0, v_now, v_now)
+      RETURNING * INTO v_usage_record;
+    ELSE
+      INSERT INTO user_usage (user_id, transcript_count, summary_count, last_reset, created_at)
+      VALUES (p_user_id, 0, 1, v_now, v_now)
+      RETURNING * INTO v_usage_record;
+    END IF;
     
     v_remaining := p_daily_limit - 1;
   ELSE
     -- Check if reset is needed (24 hours passed)
-    v_hours_since_last := EXTRACT(EPOCH FROM (v_now - v_usage_record.last_request)) / 3600;
+    v_hours_since_last := EXTRACT(EPOCH FROM (v_now - v_usage_record.last_reset)) / 3600;
     
     IF v_hours_since_last >= p_reset_interval_hours THEN
-      -- Reset counter and increment
-      UPDATE user_usage
-      SET request_count = 1,
-          last_request = v_now
-      WHERE user_id = p_user_id;
+      -- Reset counters to 0 first, then increment the appropriate counter
+      IF p_action = 'transcript' THEN
+        UPDATE user_usage
+        SET transcript_count = 1,
+            summary_count = 0,
+            last_reset = v_now,
+            updated_at = v_now
+        WHERE user_id = p_user_id;
+      ELSE
+        UPDATE user_usage
+        SET transcript_count = 0,
+            summary_count = 1,
+            last_reset = v_now,
+            updated_at = v_now
+        WHERE user_id = p_user_id;
+      END IF;
       
       v_remaining := p_daily_limit - 1;
     ELSE
-      -- Increment the counter
-      UPDATE user_usage
-      SET request_count = request_count + 1,
-          last_request = v_now
-      WHERE user_id = p_user_id;
+      -- Increment the appropriate counter
+      IF p_action = 'transcript' THEN
+        UPDATE user_usage
+        SET transcript_count = transcript_count + 1,
+            updated_at = v_now
+        WHERE user_id = p_user_id;
+      ELSE
+        UPDATE user_usage
+        SET summary_count = summary_count + 1,
+            updated_at = v_now
+        WHERE user_id = p_user_id;
+      END IF;
       
-      v_remaining := p_daily_limit - (v_usage_record.request_count + 1);
+      v_remaining := p_daily_limit - (COALESCE(v_usage_record.transcript_count, 0) + COALESCE(v_usage_record.summary_count, 0) + 1);
     END IF;
   END IF;
   
   -- Log the successful usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (p_user_id, p_ip_address::inet, p_action, p_video_url, 'success', v_now);
+  VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
   
   -- Return success with updated remaining count
   RETURN QUERY SELECT TRUE, v_remaining,
@@ -261,13 +301,13 @@ BEGIN
   -- Get or create anonymous usage record with row-level locking
   SELECT * INTO v_usage_record
   FROM anonymous_usage
-  WHERE ip_address = p_ip_address::inet
+  WHERE ip_address = public.safe_ip_cast(p_ip_address)
   FOR UPDATE;
   
   -- If no record exists, create one
   IF NOT FOUND THEN
     INSERT INTO anonymous_usage (ip_address, request_count, last_request, created_at)
-    VALUES (p_ip_address::inet, 0, v_now, v_now)
+    VALUES (public.safe_ip_cast(p_ip_address), 0, v_now, v_now)
     RETURNING * INTO v_usage_record;
   END IF;
   
@@ -279,7 +319,7 @@ BEGIN
     UPDATE anonymous_usage
     SET request_count = 0,
         last_request = v_now
-    WHERE ip_address = p_ip_address::inet;
+    WHERE ip_address = public.safe_ip_cast(p_ip_address);
     
     v_usage_record.request_count := 0;
   END IF;
@@ -289,11 +329,11 @@ BEGIN
   UPDATE anonymous_usage
   SET request_count = request_count + 1,
       last_request = v_now
-  WHERE ip_address = p_ip_address::inet;
+  WHERE ip_address = public.safe_ip_cast(p_ip_address);
   
   -- Log the usage with CAPTCHA verification note
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (NULL, p_ip_address::inet, p_action || '_captcha_verified', p_video_url, 'success', v_now);
+  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action || '_captcha_verified', p_video_url, 'success', v_now);
   
   -- Return success - CAPTCHA verification allows the request
   RETURN QUERY SELECT TRUE, 0, 'Request processed with CAPTCHA verification. Sign in for more requests!';
@@ -395,9 +435,10 @@ BEGIN
     WHERE user_id = p_user_id;
   END IF;
   
+  
   -- Log the usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (p_user_id, p_ip_address, p_action, p_video_url, 'success', v_now);
+  VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
   
   -- Return success with updated remaining count
   v_remaining := v_remaining - 1;
@@ -408,6 +449,8 @@ BEGIN
     END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
 
 -- Function to atomically process anonymous user requests
 CREATE OR REPLACE FUNCTION process_anonymous_request(
@@ -430,13 +473,13 @@ BEGIN
   -- Get or create anonymous usage record with row-level locking
   SELECT * INTO v_usage_record
   FROM anonymous_usage
-  WHERE ip_address = p_ip_address::inet
+  WHERE ip_address = public.safe_ip_cast(p_ip_address)
   FOR UPDATE;
   
   -- If no record exists, create one
   IF NOT FOUND THEN
     INSERT INTO anonymous_usage (ip_address, request_count, last_request, created_at)
-    VALUES (p_ip_address::inet, 0, v_now, v_now)
+    VALUES (public.safe_ip_cast(p_ip_address), 0, v_now, v_now)
     RETURNING * INTO v_usage_record;
   END IF;
   
@@ -448,7 +491,7 @@ BEGIN
     UPDATE anonymous_usage
     SET request_count = 0,
         last_request = v_now
-    WHERE ip_address = p_ip_address::inet;
+    WHERE ip_address = public.safe_ip_cast(p_ip_address);
     
     v_usage_record.request_count := 0;
   END IF;
@@ -466,11 +509,11 @@ BEGIN
   UPDATE anonymous_usage
   SET request_count = request_count + 1,
       last_request = v_now
-  WHERE ip_address = p_ip_address::inet;
+  WHERE ip_address = public.safe_ip_cast(p_ip_address);
   
   -- Log the usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (NULL, p_ip_address::inet, p_action, p_video_url, 'success', v_now);
+  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
   
   -- Return success with updated remaining count
   v_remaining := v_remaining - 1;

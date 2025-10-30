@@ -5,6 +5,7 @@ import { VideoUrlInput } from '@/components/VideoUrlInput';
 import { UsageDisplay } from '@/components/UsageDisplay';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';
+import { AuthButton } from '@/components/AuthButton';
 
 interface UsageInfo {
   remainingRequests: number;
@@ -38,7 +39,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            {/* <AuthButton /> */}
+            <AuthButton />
           </div>
         </div>
       </header>

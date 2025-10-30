@@ -17,7 +17,7 @@ export interface UsageTrackingOptions {
 
 // Constants
 const ANONYMOUS_LIMIT = 10;
-const AUTHENTICATED_DAILY_LIMIT = 50; // Generous limit for authenticated users
+const AUTHENTICATED_DAILY_LIMIT = 20; // Generous limit for authenticated users
 const RESET_INTERVAL_HOURS = 24;
 
 // Check if user can make a request
@@ -125,8 +125,7 @@ async function checkAnonymousUsage(ipAddress: string): Promise<UsageCheckResult>
       remainingRequests: 0,
       isAuthenticated: false,
       requiresAuth: true,
-      // message: 'Free limit reached. Sign in with Google for more requests!'
-      message: 'Free limit reached!'
+      message: 'Free limit reached. Sign in with Google for more requests!'
     };
   }
 
@@ -315,8 +314,7 @@ async function getAnonymousUserStatsForDisplay(ipAddress: string): Promise<Usage
       remainingRequests: 0,
       isAuthenticated: false,
       requiresAuth: true,
-      // message: 'Free limit reached. Sign in with Google for more requests!'
-      message: 'Free limit reached!'
+      message: 'Free limit reached. Sign in with Google for more requests!'
     };
   }
 
@@ -348,11 +346,11 @@ async function getAuthenticatedUserStatsForDisplay(userId: string): Promise<Usag
   }
 
   // Check if we need to reset (24 hours passed)
-  const lastRequest = new Date(usage.last_request);
+  const lastReset = new Date(usage.last_reset);
   const now = new Date();
-  const hoursSinceLastRequest = (now.getTime() - lastRequest.getTime()) / (1000 * 60 * 60);
+  const hoursSinceLastReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
 
-  if (hoursSinceLastRequest >= RESET_INTERVAL_HOURS) {
+  if (hoursSinceLastReset >= RESET_INTERVAL_HOURS) {
     return {
       allowed: true,
       remainingRequests: AUTHENTICATED_DAILY_LIMIT,
@@ -362,7 +360,9 @@ async function getAuthenticatedUserStatsForDisplay(userId: string): Promise<Usag
     };
   }
 
-  const remainingRequests = AUTHENTICATED_DAILY_LIMIT - usage.request_count;
+  // Calculate total usage from transcript_count + summary_count
+  const totalUsage = (usage.transcript_count || 0) + (usage.summary_count || 0);
+  const remainingRequests = AUTHENTICATED_DAILY_LIMIT - totalUsage;
 
   if (remainingRequests <= 0) {
     return {
@@ -401,12 +401,26 @@ export async function getUserUsageStats(userId: string) {
     };
   }
 
-  const totalUsage = usage.transcript_count + usage.summary_count;
+  // Check if 24-hour reset is needed
+  const lastReset = new Date(usage.last_reset);
+  const now = new Date();
+  const hoursSinceLastReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
+
+  let transcriptCount = usage.transcript_count || 0;
+  let summaryCount = usage.summary_count || 0;
+
+  // If 24 hours have passed, reset the counts
+  if (hoursSinceLastReset >= RESET_INTERVAL_HOURS) {
+    transcriptCount = 0;
+    summaryCount = 0;
+  }
+
+  const totalUsage = transcriptCount + summaryCount;
   const remainingRequests = Math.max(0, AUTHENTICATED_DAILY_LIMIT - totalUsage);
 
   return {
-    transcriptCount: usage.transcript_count,
-    summaryCount: usage.summary_count,
+    transcriptCount,
+    summaryCount,
     totalUsage,
     remainingRequests,
     lastReset: usage.last_reset
