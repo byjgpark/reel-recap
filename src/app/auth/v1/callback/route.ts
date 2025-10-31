@@ -8,6 +8,10 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error');
   const next = searchParams.get('next') ?? '/';
 
+  console.log("check req", requestUrl);
+  console.log("check searchParams", searchParams);
+  console.log("check origin", origin);
+
   // Essential logging for production monitoring
   console.log('Auth callback processed:', { 
     hasCode: !!code, 
