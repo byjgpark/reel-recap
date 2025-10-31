@@ -7,6 +7,7 @@ import { useStore } from '@/store/useStore';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { trackEvent } from '@/utils/mixpanel';
 import { TurnstileWidget } from './TurnstileWidget';
+import { getApiHeaders } from '@/utils/auth';
 
 // Add interface for window object with refreshUsageData
 interface WindowWithRefresh extends Window {
@@ -107,11 +108,10 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
 
     try {
       // Call the transcript API
+      const headers = await getApiHeaders();
       const response = await fetch('/api/transcript', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ 
           url: inputUrl,
           captchaToken: verificationToken 
@@ -139,6 +139,9 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
           return;
         }
       }
+
+
+      console.log("check response =", response, " data =", data);
       
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to extract transcript');
@@ -314,7 +317,7 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
                 <p className="text-sm text-red-700">
                   {usageInfo.isAuthenticated 
                     ? "You've reached your daily limit. Please try again tomorrow."
-                    : "You've used all 10 free requests. Please wait 24 hours for reset."
+                    : "You've used all 10 free requests. Sign in with Google to get 20 requests per day!"
                   }
                 </p>
               </div>

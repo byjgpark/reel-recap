@@ -3,6 +3,7 @@
 import { Sparkles, Globe } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { trackEvent } from '@/utils/mixpanel';
+import { getApiHeaders } from '@/utils/auth';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -57,11 +58,10 @@ export function SummarySection() {
     try {
       const transcriptText = transcript.map(line => line.text).join(' ');
       
+      const headers = await getApiHeaders();
       const response = await fetch('/api/summarize', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           transcript: transcriptText,
           language: getLanguageName(selectedLanguage),

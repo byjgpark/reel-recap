@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect, useCallback } from 'react';
 import { Activity, Clock, User, Users, RefreshCw } from 'lucide-react';
+import { getApiHeaders } from '@/utils/auth';
 
 // Add interface for window object with refreshUsageDisplay
 interface WindowWithRefresh extends Window {
@@ -29,17 +30,17 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
   const [mounted, setMounted] = useState(false);
   const [currentUsageInfo, setCurrentUsageInfo] = useState<UsageInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [migrationNotification, setMigrationNotification] = useState<string | null>(null);
 
   // Fetch usage data from API
   const fetchUsageData = useCallback(async () => {
     try {
       setIsLoading(true);
       
+      const headers = await getApiHeaders();
       const response = await fetch('/api/usage', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -59,10 +60,10 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
       
       // Fallback to default usage info based on auth state
       const fallbackUsageInfo: UsageInfo = {
-        remainingRequests: user ? 50 : 10,
+        remainingRequests: user ? 20 : 10,
         isAuthenticated: !!user,
         requiresAuth: false,
-        message: user ? '50 requests remaining today' : '10 free requests remaining'
+        message: user ? '20 requests remaining today' : '10 free requests remaining'
       };
       setCurrentUsageInfo(fallbackUsageInfo);
     } finally {
@@ -100,6 +101,30 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
     windowWithRefresh.refreshUsageDisplay = refreshUsageData;
     return () => {
       delete windowWithRefresh.refreshUsageDisplay;
+    };
+  }, [refreshUsageData]);
+
+  // Listen for migration events
+  useEffect(() => {
+    const handleMigrationEvent = (event: CustomEvent) => {
+      const { migratedRequests } = event.detail;
+      if (migratedRequests > 0) {
+        // setMigrationNotification(`✅ Successfully migrated ${migratedRequests} requests to your account!`);
+        
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => {
+          setMigrationNotification(null);
+        }, 5000);
+        
+        // Refresh usage data to show updated counts
+        refreshUsageData();
+      }
+    };
+
+    window.addEventListener('usage-migrated', handleMigrationEvent as EventListener);
+    
+    return () => {
+      window.removeEventListener('usage-migrated', handleMigrationEvent as EventListener);
     };
   }, [refreshUsageData]);
 
@@ -166,6 +191,15 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
 
   return (
     <div className={`${colors.bg} ${colors.border} border rounded-lg p-4 ${className}`}>
+      {/* Migration notification */}
+      {migrationNotification && (
+        <div className="mb-3 p-3 bg-green-100 border border-green-300 rounded-lg">
+          <p className="text-green-800 text-sm font-medium">
+            {migrationNotification}
+          </p>
+        </div>
+      )}
+      
       <div className="flex items-center space-x-3">
         <div className={`${colors.icon} flex-shrink-0`}>
           <Icon className="h-5 w-5" />
@@ -196,13 +230,13 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
             {message}
           </p>
           
-          {/* {requiresAuth && (
+          {requiresAuth && (
             <div className="mt-2">
               <p className="text-xs text-amber-700">
                 💡 Sign in with Google for more requests!
               </p>
             </div>
-          )} */}
+          )}
           
           {!isAuthenticated && remainingRequests <= 2 && remainingRequests > 0 && (
             <div className="mt-2">
@@ -220,7 +254,7 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
           <span>Usage Progress</span>
           <span>
             {(() => {
-              const dailyLimit = currentUsageInfo.dailyLimit || (isAuthenticated ? 50 : 5);
+              const dailyLimit = currentUsageInfo.dailyLimit || (isAuthenticated ? 20 : 5);
               const totalRequests = currentUsageInfo.totalRequests || (dailyLimit - remainingRequests);
               return `${totalRequests}/${dailyLimit} used`;
             })()}
@@ -237,7 +271,7 @@ export function UsageDisplay({ usageInfo, className = '', onUsageUpdate }: Usage
             }`}
             style={{
               width: `${(() => {
-                const dailyLimit = currentUsageInfo.dailyLimit || (isAuthenticated ? 50 : 5);
+                const dailyLimit = currentUsageInfo.dailyLimit || (isAuthenticated ? 20 : 5);
                 const totalRequests = currentUsageInfo.totalRequests || (dailyLimit - remainingRequests);
                 return (totalRequests / dailyLimit) * 100;
               })()}%`

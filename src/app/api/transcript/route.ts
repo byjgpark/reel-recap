@@ -97,19 +97,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     const user = await getCurrentUser(request);
     const userId = user?.id || null;
     
-    // Process request atomically based on user authentication
-    let atomicResult;
-    
-    if (userId) {
-      // Authenticated user - use atomic processing
-      atomicResult = await processAtomicAuthenticatedRequest(
-        userId,
-        'transcript',
-        url,
-        clientIP
+    console.log(`[${new Date().toISOString()}] TRANSCRIPT REQUEST - IP: ${clientIP}, URL: ${url}, User: ${userId ? 'authenticated' : 'anonymous'}`);
+
+    if (!url) {
+      return NextResponse.json(
+        { success: false, error: 'Video URL is required' },
+        { status: 400 }
       );
-    } else {
-      // Anonymous user - check if verification is needed first
+    }
+
+    // Validate the URL BEFORE any usage checking
+    const validation = validateVideoUrl(url);
+    if (!validation.isValid) {
+      return NextResponse.json(
+        { success: false, error: validation.error || 'Invalid video URL' },
+        { status: 400 }
+      );
+    }
+
+    // For anonymous users, check if verification is needed BEFORE processing
+    if (!userId) {
       const usageCheck = await checkUsageLimit(userId, clientIP);
       
       if (!usageCheck.allowed) {
@@ -132,26 +139,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       // Check if verification is required for anonymous users near limit
       const needsVerification = usageCheck.remainingRequests <= 1;
       
-      if (needsVerification) {
-        if (!captchaToken) {
-          console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}`);
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: `Please complete verification to continue.`,
-              requiresVerification: true,
-              usageInfo: {
-                remainingRequests: usageCheck.remainingRequests,
-                isAuthenticated: usageCheck.isAuthenticated,
-                requiresAuth: usageCheck.requiresAuth,
-                message: usageCheck.message
-              }
-            },
-            { status: 429 }
-          );
-        }
-        
-        // Verify CAPTCHA token
+      if (needsVerification && !captchaToken) {
+        console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}`);
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `Please complete verification to continue.`,
+            requiresVerification: true,
+            usageInfo: {
+              remainingRequests: usageCheck.remainingRequests,
+              isAuthenticated: usageCheck.isAuthenticated,
+              requiresAuth: usageCheck.requiresAuth,
+              message: usageCheck.message
+            }
+          },
+          { status: 429 }
+        );
+      }
+      
+      // Verify CAPTCHA token if provided
+      if (captchaToken) {
         const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
         if (!captchaResult.success) {
           console.log(`[${new Date().toISOString()}] VERIFICATION FAILED - IP: ${clientIP}`);
@@ -163,61 +170,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             { status: 400 }
           );
         }
-        
         console.log(`[${new Date().toISOString()}] VERIFICATION SUCCESSFUL - IP: ${clientIP}`);
-        
-        // Use CAPTCHA-verified processing for verified requests
-        atomicResult = await processCaptchaVerifiedRequest(
-          clientIP,
-          'transcript',
-          url
-        );
-      } else {
-        // Process normal anonymous request atomically
-        atomicResult = await processAtomicAnonymousRequest(
-          clientIP,
-          'transcript',
-          url
-        );
       }
-    }
-    
-    // Check if atomic processing failed
-    if (!atomicResult.success) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: atomicResult.message,
-          requiresVerification: !userId,
-          usageInfo: {
-            remainingRequests: atomicResult.remainingRequests,
-            isAuthenticated: !!userId,
-            requiresAuth: !userId,
-            message: atomicResult.message
-          }
-        },
-        { status: 429 }
-      );
-    }
-
-    if (!url) {
-      return NextResponse.json(
-        { success: false, error: 'Video URL is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate the URL
-    const validation = validateVideoUrl(url);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        { success: false, error: validation.error || 'Invalid video URL' },
-        { status: 400 }
-      );
     }
 
     try {
-        // Fetch transcript using Supadata API
+        // Fetch transcript using Supadata API BEFORE any usage counting
         const supadataApiKey = process.env.SUPADATA_API_KEY;
 
         if (!supadataApiKey) {
@@ -268,6 +226,54 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
               error: `Video duration (${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}) exceeds the 3-minute limit. Please use a shorter video.` 
             },
             { status: 400 }
+          );
+        }
+
+        // ONLY increment usage count AFTER successful transcript extraction
+        let atomicResult;
+        
+        if (userId) {
+          // Authenticated user - use atomic processing
+          atomicResult = await processAtomicAuthenticatedRequest(
+            userId,
+            'transcript',
+            url,
+            clientIP
+          );
+        } else {
+          // Anonymous user - process based on verification status
+          if (captchaToken) {
+            // Use CAPTCHA-verified processing for verified requests
+            atomicResult = await processCaptchaVerifiedRequest(
+              clientIP,
+              'transcript',
+              url
+            );
+          } else {
+            // Process normal anonymous request atomically
+            atomicResult = await processAtomicAnonymousRequest(
+              clientIP,
+              'transcript',
+              url
+            );
+          }
+        }
+
+        // Check if usage processing failed
+        if (!atomicResult.success) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: atomicResult.message,
+              requiresVerification: !userId,
+              usageInfo: {
+                remainingRequests: atomicResult.remainingRequests,
+                isAuthenticated: !!userId,
+                requiresAuth: !userId,
+                message: atomicResult.message
+              }
+            },
+            { status: 429 }
           );
         }
 

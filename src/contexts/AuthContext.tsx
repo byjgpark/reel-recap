@@ -17,12 +17,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+
 
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
       setLoading(false);
     };
 
@@ -33,16 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         setUser(session?.user ?? null);
         setLoading(false);
-        
-        // Handle sign in event
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('User signed in:', session.user.email);
-        }
-        
-        // Handle sign out event
-        if (event === 'SIGNED_OUT') {
-          console.log('User signed out');
-        }
       }
     );
 
@@ -70,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignOut = async () => {
     try {
       setLoading(true);
+      
       const { error } = await signOut();
       if (error) {
         console.error('Sign out error:', error.message);

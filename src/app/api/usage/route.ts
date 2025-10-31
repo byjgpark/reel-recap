@@ -4,7 +4,7 @@ import { getUserUsageStats, getUsageStatsForDisplay } from '@/lib/usageTracking'
 
 // Import the same constants used in usageTracking
 const ANONYMOUS_LIMIT = 10;
-const AUTHENTICATED_DAILY_LIMIT = 50;
+const AUTHENTICATED_DAILY_LIMIT = 20;
 
 interface UsageStatsResponse {
   success: boolean;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { processAtomicAuthenticatedRequest, processAtomicAnonymousRequest } from '@/lib/usageTracking';
+import { checkUsageLimitOnly, incrementUsageAfterSuccess } from '@/lib/usageTracking';
 
 interface SummarizeRequest {
   transcript: string;
@@ -94,27 +94,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
     const user = await getCurrentUser(request);
     const userId = user?.id || null;
     
-    // Use atomic request processing to check and increment usage in one operation
-    let atomicResult;
+    // Check usage limits first WITHOUT incrementing
+    const usageCheck = await checkUsageLimitOnly(userId, clientIP);
     
-    if (userId) {
-      // Authenticated user - use atomic processing
-      atomicResult = await processAtomicAuthenticatedRequest(userId, 'summary', 'summary-request', clientIP);
-    } else {
-      // Anonymous user - use atomic processing
-      atomicResult = await processAtomicAnonymousRequest(clientIP, 'summary', 'summary-request');
-    }
-    
-    if (!atomicResult.success) {
+    if (!usageCheck.success) {
       return NextResponse.json(
         { 
           success: false, 
-          error: atomicResult.message,
+          error: usageCheck.message,
           usageInfo: {
-            remainingRequests: atomicResult.remainingRequests,
-            isAuthenticated: atomicResult.isAuthenticated,
-            requiresAuth: !atomicResult.isAuthenticated,
-            message: atomicResult.message
+            remainingRequests: usageCheck.remainingRequests,
+            isAuthenticated: usageCheck.isAuthenticated,
+            requiresAuth: !usageCheck.isAuthenticated,
+            message: usageCheck.message
           }
         },
         { status: 429 }
@@ -205,16 +197,29 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
       );
     }
 
+    // ONLY increment usage count AFTER successful summary generation
+    const incrementResult = await incrementUsageAfterSuccess(
+      userId,
+      clientIP,
+      'summary',
+      'summary-request'
+    );
+
+    if (!incrementResult.success) {
+      console.error('Failed to increment usage after successful summary:', incrementResult.error);
+      // Still return success since the summary was generated successfully
+    }
+
     return NextResponse.json({
       success: true,
       summary,
       usageInfo: {
-        remainingRequests: atomicResult.remainingRequests,
-        isAuthenticated: atomicResult.isAuthenticated,
+        remainingRequests: incrementResult.remainingRequests,
+        isAuthenticated: incrementResult.isAuthenticated,
         requiresAuth: false,
-        message: atomicResult.isAuthenticated 
-          ? `${atomicResult.remainingRequests} requests remaining today`
-          : `${atomicResult.remainingRequests} free requests remaining`
+        message: incrementResult.isAuthenticated 
+          ? `${incrementResult.remainingRequests} requests remaining today`
+          : `${incrementResult.remainingRequests} free requests remaining`
       }
     });
   } catch (error: unknown) {
