@@ -7,6 +7,7 @@ import { VideoThumbnail } from '@/components/VideoThumbnail';
 import { useStore } from '@/store/useStore';
 import Link from 'next/link';
 import { getApiHeaders } from '@/utils/auth';
+import { logger } from '@/utils/logger';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -58,7 +59,7 @@ function TranscriptContent() {
     // In this case, redirect back to home to extract transcript
     if (videoUrl && transcript.length === 0 && !isLoading && !error) {
       // Optional: You could implement direct API call here instead of redirecting
-      console.log('No transcript data found, user should extract transcript first');
+      logger.debug('No transcript data found, user should extract transcript first', undefined, 'TranscriptPage');
     }
   }, [videoUrl, transcript, isLoading, error]);
 
@@ -71,7 +72,7 @@ function TranscriptContent() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy transcript:', err);
+      logger.error('Failed to copy transcript', err, 'TranscriptPage');
     }
   };
 
@@ -110,11 +111,11 @@ function TranscriptContent() {
         try {
           (window as Window & { refreshUsageData: () => void }).refreshUsageData();
         } catch (error) {
-          console.warn('Failed to refresh usage data:', error);
+          logger.warn('Failed to refresh usage data', error, 'TranscriptPage');
         }
       }
     } catch (err) {
-      console.error('Error generating summary:', err);
+      logger.error('Error generating summary', err, 'TranscriptPage');
       setError('Failed to generate summary. Please try again.');
     } finally {
       setIsGeneratingSummary(false);

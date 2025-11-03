@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createBrowserClient } from '@/utils/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/utils/logger';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -15,7 +16,7 @@ export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(target, prop) {
     // Only create the admin client when it's actually accessed
     if (!_supabaseAdmin) {
-      console.log('🔧 Creating supabaseAdmin client...');
+      logger.info('Creating supabaseAdmin client...', undefined, 'Supabase');
       
       if (!supabaseUrl || !supabaseServiceKey) {
         throw new Error(`Missing Supabase credentials: URL=${!!supabaseUrl}, ServiceKey=${!!supabaseServiceKey}`);
@@ -28,7 +29,7 @@ export const supabaseAdmin = new Proxy({} as SupabaseClient, {
         }
       });
       
-      console.log('✅ supabaseAdmin created successfully');
+      logger.info('supabaseAdmin created successfully', undefined, 'Supabase');
     }
     
     return ((_supabaseAdmin as unknown) as Record<string | symbol, unknown>)[prop];
@@ -70,12 +71,12 @@ export const getCurrentUser = async () => {
 };
 
 export const signInWithGoogle = async () => {
-  console.log('🚀 Starting Google OAuth...');
-  console.log('Current URL:', window.location.href);
-  console.log('Origin:', window.location.origin);
+  logger.debug('Starting Google OAuth', undefined, 'Supabase');
+  logger.debug('Current URL', window.location.href, 'Supabase');
+  logger.debug('Origin', window.location.origin, 'Supabase');
   
   const callbackUrl = `${window.location.origin}/auth/v1/callback`;
-  console.log('Final redirect URL will be:', callbackUrl);
+  logger.debug('Final redirect URL will be', callbackUrl, 'Supabase');
   
   try {
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -89,26 +90,26 @@ export const signInWithGoogle = async () => {
       }
     });
     
-    console.log('✅ OAuth response data:', data);
-    console.log('❌ OAuth response error:', error);
+    logger.debug('OAuth response data', data, 'Supabase');
+    logger.debug('OAuth response error', error, 'Supabase');
     
     if (data?.url) {
-      console.log('🔗 OAuth redirect URL:', data.url);
+      logger.debug('OAuth redirect URL', data.url, 'Supabase');
       // Redirect to Google OAuth
       window.location.href = data.url;
     }
     
     if (error) {
-      console.error('🚨 OAuth Error Details:', {
+      logger.error('OAuth Error Details', {
         message: error.message,
         status: error.status,
         details: error
-      });
+      }, 'Supabase');
     }
     
     return { data, error };
   } catch (err) {
-    console.error('🚨 Unexpected error during OAuth:', err);
+    logger.error('Unexpected error during OAuth', err, 'Supabase');
     return { data: null, error: err };
   }
 };

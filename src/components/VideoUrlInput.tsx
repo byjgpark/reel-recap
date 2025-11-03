@@ -118,10 +118,7 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
         }),
       });
       
-      const data = await response.json();
-
-      console.log("Check response.status", response.status);
-      
+      const data = await response.json();  
       
       // Handle verification requirement
       if (response.status === 429) {
@@ -139,9 +136,6 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
           return;
         }
       }
-
-
-      console.log("check response =", response, " data =", data);
       
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to extract transcript');

@@ -6,6 +6,7 @@ import { UsageDisplay } from '@/components/UsageDisplay';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';
 import { AuthButton } from '@/components/AuthButton';
+import { FeedbackButton } from '@/components/FeedbackButton';
 
 interface UsageInfo {
   remainingRequests: number;
@@ -95,6 +96,9 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Feedback Button */}
+      <FeedbackButton />
     </div>
   );
 }
