@@ -73,6 +73,21 @@ body {
   line-height: 1.6;
 }
 
+/* Ensure form controls have readable text in light theme */
+input, textarea, select {
+  color: #111827; /* gray-900 */
+}
+input::placeholder, textarea::placeholder {
+  color: #9CA3AF; /* gray-400 */
+}
+/* Fix Chrome/Safari autofill forcing white text */
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #111827 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 /* Clean modern theme classes */
 .bright-card {
   background: rgba(255, 255, 255, 0.98);

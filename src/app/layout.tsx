@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Analytics } from '@vercel/analytics/react'
+import { FeedbackButton } from "@/components/FeedbackButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,8 @@ export default function RootLayout({
         <AuthProvider>
           <ThemeProvider>
             {children}
+            {/* Global Floating Feedback Button */}
+            <FeedbackButton />
           </ThemeProvider>
         </AuthProvider>
         <Analytics />

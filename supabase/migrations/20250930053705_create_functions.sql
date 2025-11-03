@@ -32,6 +32,173 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Function to submit feedback
+CREATE OR REPLACE FUNCTION submit_feedback(
+  p_user_id UUID,
+  p_rating INTEGER,
+  p_category TEXT,
+  p_title TEXT,
+  p_message TEXT,
+  p_email TEXT,
+  p_user_agent TEXT,
+  p_ip_address TEXT
+)
+RETURNS TABLE(success BOOLEAN, feedback_id UUID, message TEXT) AS $$
+DECLARE
+  v_feedback_id UUID;
+  v_now TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+  -- Validate rating
+  IF p_rating < 1 OR p_rating > 5 THEN
+    RETURN QUERY SELECT FALSE, NULL::UUID, 'Rating must be between 1 and 5';
+    RETURN;
+  END IF;
+  
+  -- Validate category
+  IF p_category NOT IN ('feature_request', 'bug_report', 'general_feedback', 'platform_request', 'ui_ux', 'performance') THEN
+    RETURN QUERY SELECT FALSE, NULL::UUID, 'Invalid feedback category';
+    RETURN;
+  END IF;
+  
+  -- Insert feedback
+  INSERT INTO public.feedback (
+    user_id, rating, category, title, message, email, user_agent, ip_address, created_at, updated_at
+  ) VALUES (
+    p_user_id, p_rating, p_category, p_title, p_message, p_email, p_user_agent, public.safe_ip_cast(p_ip_address), v_now, v_now
+  ) RETURNING id INTO v_feedback_id;
+  
+  RETURN QUERY SELECT TRUE, v_feedback_id, 'Feedback submitted successfully';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to get feedback with filtering and pagination
+CREATE OR REPLACE FUNCTION get_feedback(
+  p_user_id UUID DEFAULT NULL,
+  p_category TEXT DEFAULT NULL,
+  p_status TEXT DEFAULT NULL,
+  p_rating INTEGER DEFAULT NULL,
+  p_limit INTEGER DEFAULT 20,
+  p_offset INTEGER DEFAULT 0,
+  p_order_by TEXT DEFAULT 'created_at',
+  p_order_direction TEXT DEFAULT 'DESC'
+)
+RETURNS TABLE(
+  id UUID,
+  user_id UUID,
+  rating INTEGER,
+  category TEXT,
+  title TEXT,
+  message TEXT,
+  email TEXT,
+  status TEXT,
+  admin_notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  user_name TEXT
+) AS $$
+DECLARE
+  v_query TEXT;
+BEGIN
+  -- Build dynamic query with filters
+  v_query := 'SELECT f.id, f.user_id, f.rating, f.category, f.title, f.message, f.email, f.status, f.admin_notes, f.created_at, f.updated_at, u.name as user_name
+              FROM public.feedback f
+              LEFT JOIN public.users u ON f.user_id = u.id
+              WHERE 1=1';
+  
+  -- Add filters
+  IF p_user_id IS NOT NULL THEN
+    v_query := v_query || ' AND f.user_id = $1';
+  END IF;
+  
+  IF p_category IS NOT NULL THEN
+    v_query := v_query || ' AND f.category = ' || quote_literal(p_category);
+  END IF;
+  
+  IF p_status IS NOT NULL THEN
+    v_query := v_query || ' AND f.status = ' || quote_literal(p_status);
+  END IF;
+  
+  IF p_rating IS NOT NULL THEN
+    v_query := v_query || ' AND f.rating = ' || p_rating;
+  END IF;
+  
+  -- Add ordering
+  v_query := v_query || ' ORDER BY f.' || p_order_by || ' ' || p_order_direction;
+  
+  -- Add pagination
+  v_query := v_query || ' LIMIT ' || p_limit || ' OFFSET ' || p_offset;
+  
+  -- Execute query
+  IF p_user_id IS NOT NULL THEN
+    RETURN QUERY EXECUTE v_query USING p_user_id;
+  ELSE
+    RETURN QUERY EXECUTE v_query;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to update feedback status (admin only)
+CREATE OR REPLACE FUNCTION update_feedback_status(
+  p_feedback_id UUID,
+  p_status TEXT,
+  p_admin_notes TEXT,
+  p_admin_user_id UUID
+)
+RETURNS TABLE(success BOOLEAN, message TEXT) AS $$
+DECLARE
+  v_now TIMESTAMP WITH TIME ZONE := NOW();
+BEGIN
+  -- Validate status
+  IF p_status NOT IN ('open', 'in_progress', 'resolved', 'closed') THEN
+    RETURN QUERY SELECT FALSE, 'Invalid status';
+    RETURN;
+  END IF;
+  
+  -- Update feedback
+  UPDATE public.feedback
+  SET status = p_status,
+      admin_notes = p_admin_notes,
+      admin_user_id = p_admin_user_id,
+      resolved_at = CASE WHEN p_status IN ('resolved', 'closed') THEN v_now ELSE NULL END,
+      updated_at = v_now
+  WHERE id = p_feedback_id;
+  
+  IF FOUND THEN
+    RETURN QUERY SELECT TRUE, 'Feedback status updated successfully';
+  ELSE
+    RETURN QUERY SELECT FALSE, 'Feedback not found';
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to get feedback statistics
+CREATE OR REPLACE FUNCTION get_feedback_stats()
+RETURNS TABLE(
+  total_feedback INTEGER,
+  avg_rating NUMERIC,
+  feedback_by_category JSON,
+  feedback_by_status JSON,
+  recent_feedback_count INTEGER
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    (SELECT COUNT(*)::INTEGER FROM public.feedback) as total_feedback,
+    (SELECT ROUND(AVG(rating), 2) FROM public.feedback) as avg_rating,
+    (SELECT json_object_agg(category, count) FROM (
+      SELECT category, COUNT(*) as count 
+      FROM public.feedback 
+      GROUP BY category
+    ) t) as feedback_by_category,
+    (SELECT json_object_agg(status, count) FROM (
+      SELECT status, COUNT(*) as count 
+      FROM public.feedback 
+      GROUP BY status
+    ) t) as feedback_by_status,
+    (SELECT COUNT(*)::INTEGER FROM public.feedback WHERE created_at > NOW() - INTERVAL '7 days') as recent_feedback_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 
 -- Function to check anonymous usage limits without incrementing

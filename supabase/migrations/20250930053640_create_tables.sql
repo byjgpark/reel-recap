@@ -41,3 +41,22 @@ CREATE TABLE IF NOT EXISTS public.anonymous_usage (
   last_request TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Create feedback table for user feedback system
+CREATE TABLE IF NOT EXISTS public.feedback (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  category TEXT NOT NULL CHECK (category IN ('feature_request', 'bug_report', 'general_feedback', 'platform_request', 'ui_ux', 'performance')),
+  title TEXT,
+  message TEXT,
+  email TEXT,
+  user_agent TEXT,
+  ip_address INET,
+  status TEXT DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+  admin_notes TEXT,
+  admin_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  resolved_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

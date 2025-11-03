@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { logger } from '@/utils/logger';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -8,23 +9,23 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error');
   const next = searchParams.get('next') ?? '/';
 
-  console.log("check req", requestUrl);
-  console.log("check searchParams", searchParams);
-  console.log("check origin", origin);
+  logger.debug('Auth callback request URL', requestUrl, 'AuthCallback');
+  logger.debug('Auth callback searchParams', Object.fromEntries(searchParams.entries()), 'AuthCallback');
+  logger.debug('Auth callback origin', origin, 'AuthCallback');
 
   // Essential logging for production monitoring
-  console.log('Auth callback processed:', { 
-    hasCode: !!code, 
-    hasError: !!error, 
-    errorType: error || undefined 
-  });
+  logger.info('Auth callback processed', {
+    hasCode: !!code,
+    hasError: !!error,
+    errorType: error || undefined,
+  }, 'AuthCallback');
   
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      console.log('Auth session exchange successful');
+      logger.info('Auth session exchange successful', undefined, 'AuthCallback');
       const forwardedHost = request.headers.get('x-forwarded-host');
       const isLocalEnv = process.env.NODE_ENV === 'development';
 
@@ -36,11 +37,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${origin}${next}`);
       }
     } else {
-      console.log('Auth session exchange failed:', error);
+      logger.error('Auth session exchange failed', error, 'AuthCallback');
     }
   }
 
   // return the user to an error page with instructions
-  console.log('Auth callback failed - redirecting to error page');
+  logger.warn('Auth callback failed - redirecting to error page', undefined, 'AuthCallback');
   return NextResponse.redirect(`${origin}/auth/auth-code-error`);
 }

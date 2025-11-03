@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyCaptchaToken } from '@/utils/captcha';
 import { supabase } from '@/lib/supabase';
 import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest } from '@/lib/usageTracking';
+import { logger } from '@/utils/logger';
 
 interface TranscriptItem {
   text: string;
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     const user = await getCurrentUser(request);
     const userId = user?.id || null;
     
-    console.log(`[${new Date().toISOString()}] TRANSCRIPT REQUEST - IP: ${clientIP}, URL: ${url}, User: ${userId ? 'authenticated' : 'anonymous'}`);
+    logger.info('Transcript request received', { ip: clientIP, url, userType: userId ? 'authenticated' : 'anonymous' }, 'TranscriptAPI');
 
     if (!url) {
       return NextResponse.json(
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       const needsVerification = usageCheck.remainingRequests <= 1;
       
       if (needsVerification && !captchaToken) {
-        console.log(`[${new Date().toISOString()}] VERIFICATION REQUIRED - IP: ${clientIP}`);
+        logger.warn('Verification required', { ip: clientIP }, 'TranscriptAPI');
         return NextResponse.json(
           { 
             success: false, 
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       if (captchaToken) {
         const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
         if (!captchaResult.success) {
-          console.log(`[${new Date().toISOString()}] VERIFICATION FAILED - IP: ${clientIP}`);
+          logger.warn('Verification failed', { ip: clientIP }, 'TranscriptAPI');
           return NextResponse.json(
             { 
               success: false, 
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             { status: 400 }
           );
         }
-        console.log(`[${new Date().toISOString()}] VERIFICATION SUCCESSFUL - IP: ${clientIP}`);
+        logger.info('Verification successful', { ip: clientIP }, 'TranscriptAPI');
       }
     }
 
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.log(`[${new Date().toISOString()}] API CALL FAILED - IP: ${clientIP}, URL: ${url}, Status: ${response.status}`);
+          logger.warn('Supadata API call failed', { ip: clientIP, url, status: response.status }, 'TranscriptAPI');
           return NextResponse.json(
             { success: false, error: errorData.message || `Failed to fetch transcript (Status: ${response.status})` },
             { status: response.status }
@@ -277,7 +278,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
           );
         }
 
-        console.log(`[${new Date().toISOString()}] TRANSCRIPT SUCCESS - IP: ${clientIP}, URL: ${url}, Duration: ${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}`);
+        logger.info('Transcript success', { ip: clientIP, url, durationSeconds: durationInSeconds }, 'TranscriptAPI');
         
         return NextResponse.json({
           success: true,
@@ -296,7 +297,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
           }
         });
     } catch (transcriptError: unknown) {
-      console.error('Transcript extraction error:', transcriptError);
+      logger.error('Transcript extraction error', transcriptError, 'TranscriptAPI');
       
       return NextResponse.json(
         { success: false, error: 'Failed to extract transcript. Please try again.' },
@@ -304,7 +305,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       );
     }
   } catch (error: unknown) {
-    console.error('API error:', error);
+    logger.error('API error', error, 'TranscriptAPI');
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Sparkles, Globe } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { trackEvent } from '@/utils/mixpanel';
@@ -39,6 +40,8 @@ export function SummarySection() {
     setError
   } = useStore();
 
+  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
+
   const generateSummary = async () => {
     if (transcript.length === 0) {
       setError('No transcript available to summarize');
@@ -74,6 +77,7 @@ export function SummarySection() {
 
       const data = await response.json();
       setSummary(data.summary);
+      setShowFeedbackPrompt(true);
       
       // Refresh usage data after successful request
       if (typeof window !== 'undefined' && 'refreshUsageData' in window && typeof (window as Window & { refreshUsageData: () => void }).refreshUsageData === 'function') {
@@ -95,6 +99,7 @@ export function SummarySection() {
       console.error('Error generating summary:', error);
       const errorMessage = 'Failed to generate summary. Please try again.';
       setError(errorMessage);
+      setShowFeedbackPrompt(true);
       
       // Track summary generation error
       trackEvent('Summary Generation Failed', {
@@ -177,7 +182,7 @@ export function SummarySection() {
             </>
           )}
         </button>
-        
+
         {/* Empty State Message */}
         {!summary && (
           <div className="mt-6 text-center">
@@ -185,6 +190,29 @@ export function SummarySection() {
             <p className="text-gray-500 text-sm">
               Generate an AI-powered summary of your video transcript in your preferred language.
             </p>
+          </div>
+        )}
+
+        {/* Contextual Feedback Prompt */}
+        {showFeedbackPrompt && (
+          <div className="mt-6 p-4 border border-blue-100 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-900 mb-3">
+              Was this summary helpful? Share feedback to improve results.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  // throttle: hide prompt after opening
+                  setShowFeedbackPrompt(false);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event('open-feedback-modal'));
+                  }
+                }}
+                className="inline-flex items-center px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+              >
+                Give Feedback
+              </button>
+            </div>
           </div>
         )}
       </div>
