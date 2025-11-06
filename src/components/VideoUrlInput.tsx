@@ -64,7 +64,8 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
     isLoading,
     setIsLoading,
     setTranscript,
-    setThumbnail
+    setThumbnail,
+    setUsageLogId
   } = useStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,6 +174,12 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
       }
       
       setTranscript(transcriptLines);
+      // Store usageLogId for feedback linkage
+      if ('usageLogId' in data) {
+        setUsageLogId(data.usageLogId || null);
+      } else {
+        setUsageLogId(null);
+      }
       
       // Track successful transcript extraction
       trackEvent('Transcript Extracted Successfully', {

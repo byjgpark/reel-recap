@@ -19,12 +19,15 @@ interface AppState {
   summary: string;
   selectedLanguage: string;
   thumbnail: VideoThumbnail | null;
+  usageLogId: string | null;
   
   // UI states
   isLoading: boolean;
   isGeneratingSummary: boolean;
   error: string | null;
   showTimestamps: boolean;
+  feedbackPromptOpen: boolean;
+  feedbackPromptShown: boolean;
   
   // Actions
   setVideoUrl: (url: string) => void;
@@ -36,6 +39,9 @@ interface AppState {
   setIsGeneratingSummary: (generating: boolean) => void;
   setError: (error: string | null) => void;
   setShowTimestamps: (show: boolean) => void;
+  setUsageLogId: (id: string | null) => void;
+  setFeedbackPromptOpen: (open: boolean) => void;
+  setFeedbackPromptShown: (shown: boolean) => void;
   clearData: () => void;
 }
 
@@ -46,10 +52,13 @@ export const useStore = create<AppState>((set) => ({
   summary: '',
   selectedLanguage: 'en',
   thumbnail: null,
+  usageLogId: null,
   isLoading: false,
   isGeneratingSummary: false,
   error: null,
   showTimestamps: true,
+  feedbackPromptOpen: false,
+  feedbackPromptShown: false,
   
   // Actions
   setVideoUrl: (url) => set({ videoUrl: url, error: null }),
@@ -61,10 +70,16 @@ export const useStore = create<AppState>((set) => ({
   setIsGeneratingSummary: (generating) => set({ isGeneratingSummary: generating }),
   setError: (error) => set({ error }),
   setShowTimestamps: (show) => set({ showTimestamps: show }),
+  setUsageLogId: (id) => set({ usageLogId: id }),
+  setFeedbackPromptOpen: (open) => set({ feedbackPromptOpen: open }),
+  setFeedbackPromptShown: (shown) => set({ feedbackPromptShown: shown }),
   clearData: () => set({ 
     transcript: [], 
     summary: '', 
     thumbnail: null,
+    usageLogId: null,
+    feedbackPromptOpen: false,
+    feedbackPromptShown: false,
     error: null,
     isLoading: false,
     isGeneratingSummary: false

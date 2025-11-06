@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { checkUsageLimitOnly, incrementUsageAfterSuccess } from '@/lib/usageTracking';
 
 interface SummarizeRequest {
   transcript: string;
@@ -94,24 +93,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
     const user = await getCurrentUser(request);
     const userId = user?.id || null;
     
-    // Check usage limits first WITHOUT incrementing
-    const usageCheck = await checkUsageLimitOnly(userId, clientIP);
-    
-    if (!usageCheck.success) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: usageCheck.message,
-          usageInfo: {
-            remainingRequests: usageCheck.remainingRequests,
-            isAuthenticated: usageCheck.isAuthenticated,
-            requiresAuth: !usageCheck.isAuthenticated,
-            message: usageCheck.message
-          }
-        },
-        { status: 429 }
-      );
-    }
+    // Summary requests are free: do not count or gate by usage limits
 
     if (!transcript) {
       return NextResponse.json(
@@ -197,30 +179,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
       );
     }
 
-    // ONLY increment usage count AFTER successful summary generation
-    const incrementResult = await incrementUsageAfterSuccess(
-      userId,
-      clientIP,
-      'summary',
-      'summary-request'
-    );
-
-    if (!incrementResult.success) {
-      console.error('Failed to increment usage after successful summary:', incrementResult.error);
-      // Still return success since the summary was generated successfully
-    }
-
+    // Return summary without modifying usage counts
     return NextResponse.json({
       success: true,
-      summary,
-      usageInfo: {
-        remainingRequests: incrementResult.remainingRequests,
-        isAuthenticated: incrementResult.isAuthenticated,
-        requiresAuth: false,
-        message: incrementResult.isAuthenticated 
-          ? `${incrementResult.remainingRequests} requests remaining today`
-          : `${incrementResult.remainingRequests} free requests remaining`
-      }
+      summary
     });
   } catch (error: unknown) {
     console.error('Summarization error:', error);
