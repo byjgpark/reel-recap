@@ -51,6 +51,9 @@ export async function trackUsage(options: UsageTrackingOptions): Promise<void> {
   try {
     const { userId, ipAddress, action, videoUrl } = options;
 
+    // Use RPC path that safely casts IP to INET and logs in the DB
+    await incrementUsageAfterSuccess(userId ?? null, ipAddress, action, videoUrl);
+
     // Log the usage
     await supabaseAdmin
       .from('usage_logs')
