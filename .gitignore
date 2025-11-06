@@ -42,3 +42,7 @@ next-env.d.ts
 
 # test files
 test-rate-limit.js
+
+# ignore backups
+*.backup
+backups/
