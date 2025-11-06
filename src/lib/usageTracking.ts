@@ -438,6 +438,7 @@ export interface AtomicRequestResult {
   remainingRequests: number;
   isAuthenticated: boolean;
   message: string;
+  usageLogId?: string | null;
   error?: string;
 }
 
@@ -475,7 +476,8 @@ export async function processAtomicAuthenticatedRequest(
       success: result.success,
       remainingRequests: result.remaining_requests,
       isAuthenticated: true,
-      message: result.message
+      message: result.message,
+      usageLogId: result.usage_log_id ?? null
     };
   } catch (error) {
     console.error('Atomic request processing error:', error);
@@ -521,7 +523,8 @@ export async function processAtomicAnonymousRequest(
       success: result.success,
       remainingRequests: result.remaining_requests,
       isAuthenticated: false,
-      message: result.message
+      message: result.message,
+      usageLogId: result.usage_log_id ?? null
     };
   } catch (error) {
     console.error('Atomic anonymous request processing error:', error);
@@ -566,7 +569,8 @@ export async function processCaptchaVerifiedRequest(
       success: result.success,
       remainingRequests: result.remaining_requests,
       isAuthenticated: false,
-      message: result.message
+      message: result.message,
+      usageLogId: result.usage_log_id ?? null
     };
   } catch (error) {
     console.error('CAPTCHA-verified request processing error:', error);
@@ -686,7 +690,8 @@ export async function incrementUsageAfterSuccess(
         success: result.success,
         remainingRequests: result.remaining_requests,
         isAuthenticated: true,
-        message: result.message
+        message: result.message,
+        usageLogId: result.usage_log_id ?? null
       };
     } else {
       // Increment anonymous user usage
@@ -714,7 +719,8 @@ export async function incrementUsageAfterSuccess(
         success: result.success,
         remainingRequests: result.remaining_requests,
         isAuthenticated: false,
-        message: result.message
+        message: result.message,
+        usageLogId: result.usage_log_id ?? null
       };
     }
   } catch (error) {

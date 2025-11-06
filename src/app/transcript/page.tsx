@@ -8,6 +8,7 @@ import { useStore } from '@/store/useStore';
 import Link from 'next/link';
 import { getApiHeaders } from '@/utils/auth';
 import { logger } from '@/utils/logger';
+import { FeedbackModal } from '@/components/FeedbackModal';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -47,9 +48,15 @@ function TranscriptContent() {
     setSelectedLanguage,
     setSummary,
     setIsGeneratingSummary,
-    setError
+    setError,
+    usageLogId,
+    feedbackPromptOpen,
+    setFeedbackPromptOpen,
+    feedbackPromptShown,
+    setFeedbackPromptShown
   } = useStore();
   const [copied, setCopied] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
   // Use videoUrl from store if available, otherwise use from search params
   const currentVideoUrl = storeVideoUrl || videoUrl || '';
@@ -62,6 +69,17 @@ function TranscriptContent() {
       logger.debug('No transcript data found, user should extract transcript first', undefined, 'TranscriptPage');
     }
   }, [videoUrl, transcript, isLoading, error]);
+
+  // Delayed feedback prompt after successful transcript load
+  useEffect(() => {
+    if (transcript.length > 0 && !isLoading && !error && !feedbackPromptOpen && !feedbackPromptShown) {
+      const timer = setTimeout(() => {
+        setFeedbackPromptOpen(true);
+        setFeedbackPromptShown(true);
+    }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [transcript, isLoading, error, feedbackPromptOpen, feedbackPromptShown, setFeedbackPromptOpen, setFeedbackPromptShown]);
 
   const copyTranscript = async () => {
     const transcriptText = showTimestamps 
@@ -105,21 +123,29 @@ function TranscriptContent() {
 
       const data = await response.json();
       setSummary(data.summary);
-      
-      // Refresh usage data after successful request
-      if (typeof window !== 'undefined' && 'refreshUsageData' in window && typeof (window as Window & { refreshUsageData: () => void }).refreshUsageData === 'function') {
-        try {
-          (window as Window & { refreshUsageData: () => void }).refreshUsageData();
-        } catch (error) {
-          logger.warn('Failed to refresh usage data', error, 'TranscriptPage');
+      // Schedule feedback modal 5s after successful summary generation (always schedule)
+      setTimeout(() => {
+        // Avoid re-opening if already open
+        if (!feedbackPromptOpen) {
+          setFeedbackPromptOpen(true);
+          setFeedbackPromptShown(true);
         }
-      }
+      }, 5000);
+      
+      // Do not refresh usage data for summary; summary requests are free
     } catch (err) {
       logger.error('Error generating summary', err, 'TranscriptPage');
       setError('Failed to generate summary. Please try again.');
     } finally {
       setIsGeneratingSummary(false);
     }
+  };
+
+  const handleFeedbackSuccess = () => {
+    // Close modal and show success toast for 3 seconds
+    setFeedbackPromptOpen(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   return (
@@ -161,7 +187,7 @@ function TranscriptContent() {
             <div className="bright-card p-4 sm:p-6 min-h-[400px] max-h-[80vh] lg:h-[600px] flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-slate-800">Transcript</h2>
-                <button className="p-2 text-slate-500 hover:text-slate-700 transition-colors">
+                <button className="p-2 text-slate-500 hover:text-slate-700 transition-colors" onClick={copyTranscript}>
                   <Copy className="h-4 w-4" />
                 </button>
               </div>
@@ -336,6 +362,26 @@ function TranscriptContent() {
           </div>
         </div>
       </main>
+      {/* Feedback Modal */}
+      <FeedbackModal 
+        isOpen={feedbackPromptOpen}
+        onClose={() => setFeedbackPromptOpen(false)}
+        onSuccess={handleFeedbackSuccess}
+      />
+
+      {/* Success Toast */}
+      {showSuccess && (
+        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-2">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className="text-sm font-medium">Thank you for your feedback!</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

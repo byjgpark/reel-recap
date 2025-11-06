@@ -5,6 +5,7 @@ import { X, Star, Send, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiHeaders } from '@/utils/auth';
 import { trackEvent } from '@/utils/mixpanel';
+import { useStore } from '@/store/useStore';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ const categories = [
 
 export function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackModalProps) {
   const { user } = useAuth();
+  const { usageLogId, setFeedbackPromptShown } = useStore();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<FeedbackForm>({
@@ -97,7 +99,8 @@ export function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackModalProps
           category: form.category,
           title: form.title || undefined,
           message: form.message || undefined,
-          email: form.email || undefined
+          email: form.email || undefined,
+          usageLogId: usageLogId || undefined
         })
       });
 
@@ -114,8 +117,10 @@ export function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackModalProps
           messageLength: form.message.length,
           emailProvided: !!form.email,
           isAuthenticated: !!user,
+          usageLogId: usageLogId || null,
         });
         onSuccess?.();
+        setFeedbackPromptShown(true);
         onClose();
         // Reset form
         setForm({
@@ -312,7 +317,7 @@ export function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackModalProps
               <h2 className="text-xl font-semibold text-slate-800">Feedback</h2>
             </div>
             <button
-              onClick={onClose}
+              onClick={() => { setFeedbackPromptShown(true); onClose(); }}
               className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
               aria-label="Close feedback modal"
             >
@@ -348,7 +353,7 @@ export function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackModalProps
           {/* Actions */}
           <div className="flex justify-between">
             <button
-              onClick={step === 1 ? onClose : handleBack}
+              onClick={step === 1 ? () => { setFeedbackPromptShown(true); onClose(); } : handleBack}
               className="px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
               disabled={isSubmitting}
             >

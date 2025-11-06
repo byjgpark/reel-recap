@@ -35,6 +35,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Function to submit feedback
 CREATE OR REPLACE FUNCTION submit_feedback(
   p_user_id UUID,
+  p_usage_log_id UUID,
   p_rating INTEGER,
   p_category TEXT,
   p_title TEXT,
@@ -62,9 +63,9 @@ BEGIN
   
   -- Insert feedback
   INSERT INTO public.feedback (
-    user_id, rating, category, title, message, email, user_agent, ip_address, created_at, updated_at
+    user_id, usage_log_id, rating, category, title, message, email, user_agent, ip_address, created_at, updated_at
   ) VALUES (
-    p_user_id, p_rating, p_category, p_title, p_message, p_email, p_user_agent, public.safe_ip_cast(p_ip_address), v_now, v_now
+    p_user_id, p_usage_log_id, p_rating, p_category, p_title, p_message, p_email, p_user_agent, public.safe_ip_cast(p_ip_address), v_now, v_now
   ) RETURNING id INTO v_feedback_id;
   
   RETURN QUERY SELECT TRUE, v_feedback_id, 'Feedback submitted successfully';
@@ -256,12 +257,13 @@ CREATE OR REPLACE FUNCTION increment_anonymous_usage(
   p_anonymous_limit INTEGER DEFAULT 10,
   p_reset_interval_hours INTEGER DEFAULT 24
 )
-RETURNS TABLE(success BOOLEAN, remaining_requests INTEGER, message TEXT) AS $$
+RETURNS TABLE(success BOOLEAN, remaining_requests INTEGER, message TEXT, usage_log_id UUID) AS $$
 DECLARE
   v_usage_record anonymous_usage%ROWTYPE;
   v_remaining INTEGER;
   v_hours_since_last NUMERIC;
   v_now TIMESTAMP WITH TIME ZONE := NOW();
+  v_usage_log_id UUID;
 BEGIN
   -- Get or create anonymous usage record with row-level locking
   SELECT * INTO v_usage_record
@@ -301,14 +303,16 @@ BEGIN
   
   -- Log the successful usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
+  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now)
+  RETURNING id INTO v_usage_log_id;
   
   -- Return success with updated remaining count
   RETURN QUERY SELECT TRUE, v_remaining,
     CASE 
       WHEN v_remaining = 0 THEN 'Request processed. Free limit reached - sign in for more!'
       ELSE v_remaining || ' free requests remaining'
-    END;
+    END,
+    v_usage_log_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -368,12 +372,13 @@ CREATE OR REPLACE FUNCTION increment_authenticated_usage(
   p_daily_limit INTEGER DEFAULT 20,
   p_reset_interval_hours INTEGER DEFAULT 24
 )
-RETURNS TABLE(success BOOLEAN, remaining_requests INTEGER, message TEXT) AS $$
+RETURNS TABLE(success BOOLEAN, remaining_requests INTEGER, message TEXT, usage_log_id UUID) AS $$
 DECLARE
   v_usage_record user_usage%ROWTYPE;
   v_remaining INTEGER;
   v_hours_since_last NUMERIC;
   v_now TIMESTAMP WITH TIME ZONE := NOW();
+  v_usage_log_id UUID;
 BEGIN
   -- Get or create user usage record with row-level locking
   SELECT * INTO v_usage_record
@@ -437,14 +442,16 @@ BEGIN
   
   -- Log the successful usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
+  VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now)
+  RETURNING id INTO v_usage_log_id;
   
   -- Return success with updated remaining count
   RETURN QUERY SELECT TRUE, v_remaining,
     CASE 
       WHEN v_remaining = 0 THEN 'Request processed. Daily limit reached!'
       ELSE v_remaining || ' requests remaining today'
-    END;
+    END,
+    v_usage_log_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -458,12 +465,14 @@ CREATE OR REPLACE FUNCTION process_captcha_verified_request(
 ) RETURNS TABLE(
   success BOOLEAN,
   remaining_requests INTEGER,
-  message TEXT
+  message TEXT,
+  usage_log_id UUID
 ) AS $$
 DECLARE
   v_usage_record anonymous_usage%ROWTYPE;
   v_hours_since_last NUMERIC;
   v_now TIMESTAMP WITH TIME ZONE := NOW();
+  v_usage_log_id UUID;
 BEGIN
   -- Get or create anonymous usage record with row-level locking
   SELECT * INTO v_usage_record
@@ -500,10 +509,11 @@ BEGIN
   
   -- Log the usage with CAPTCHA verification note
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action || '_captcha_verified', p_video_url, 'success', v_now);
+  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action || '_captcha_verified', p_video_url, 'success', v_now)
+  RETURNING id INTO v_usage_log_id;
   
   -- Return success - CAPTCHA verification allows the request
-  RETURN QUERY SELECT TRUE, 0, 'Request processed with CAPTCHA verification. Sign in for more requests!';
+  RETURN QUERY SELECT TRUE, 0, 'Request processed with CAPTCHA verification. Sign in for more requests!', v_usage_log_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -541,7 +551,8 @@ CREATE OR REPLACE FUNCTION process_authenticated_request(
 ) RETURNS TABLE(
   success BOOLEAN,
   remaining_requests INTEGER,
-  message TEXT
+  message TEXT,
+  usage_log_id UUID
 ) AS $$
 DECLARE
   v_usage_record user_usage%ROWTYPE;
@@ -549,6 +560,7 @@ DECLARE
   v_remaining INTEGER;
   v_hours_since_reset NUMERIC;
   v_now TIMESTAMP WITH TIME ZONE := NOW();
+  v_usage_log_id UUID;
 BEGIN
   -- Get or create user usage record with row-level locking
   SELECT * INTO v_usage_record
@@ -605,7 +617,8 @@ BEGIN
   
   -- Log the usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
+  VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now)
+  RETURNING id INTO v_usage_log_id;
   
   -- Return success with updated remaining count
   v_remaining := v_remaining - 1;
@@ -613,7 +626,8 @@ BEGIN
     CASE 
       WHEN v_remaining = 0 THEN 'Request processed. Daily limit reached.'
       ELSE v_remaining || ' requests remaining today'
-    END;
+    END,
+    v_usage_log_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -629,13 +643,15 @@ CREATE OR REPLACE FUNCTION process_anonymous_request(
 ) RETURNS TABLE(
   success BOOLEAN,
   remaining_requests INTEGER,
-  message TEXT
+  message TEXT,
+  usage_log_id UUID
 ) AS $$
 DECLARE
   v_usage_record anonymous_usage%ROWTYPE;
   v_remaining INTEGER;
   v_hours_since_last NUMERIC;
   v_now TIMESTAMP WITH TIME ZONE := NOW();
+  v_usage_log_id UUID;
 BEGIN
   -- Get or create anonymous usage record with row-level locking
   SELECT * INTO v_usage_record
@@ -680,7 +696,8 @@ BEGIN
   
   -- Log the usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now);
+  VALUES (NULL, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now)
+  RETURNING id INTO v_usage_log_id;
   
   -- Return success with updated remaining count
   v_remaining := v_remaining - 1;
@@ -688,6 +705,7 @@ BEGIN
     CASE 
       WHEN v_remaining = 0 THEN 'Request processed. Free limit reached - sign in for more!'
       ELSE v_remaining || ' free requests remaining'
-    END;
+    END,
+    v_usage_log_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

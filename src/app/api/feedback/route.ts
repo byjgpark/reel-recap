@@ -7,6 +7,7 @@ interface FeedbackSubmission {
   title?: string;
   message?: string;
   email?: string;
+  usageLogId?: string;
 }
 
 interface FeedbackQuery {
@@ -45,7 +46,7 @@ async function getCurrentUser(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body: FeedbackSubmission = await request.json();
-    const { rating, category, title, message, email } = body;
+    const { rating, category, title, message, email, usageLogId } = body;
 
     // Validation
     if (!rating || rating < 1 || rating > 5) {
@@ -88,7 +89,8 @@ export async function POST(request: NextRequest) {
       p_message: message || null,
       p_email: email || user?.email || null,
       p_user_agent: userAgent,
-      p_ip_address: clientIP
+      p_ip_address: clientIP,
+      p_usage_log_id: usageLogId || null
     });
 
     if (error) {

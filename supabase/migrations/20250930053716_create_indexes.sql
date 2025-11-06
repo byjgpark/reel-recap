@@ -19,6 +19,7 @@ CREATE INDEX IF NOT EXISTS idx_anonymous_usage_last_request ON public.anonymous_
 
 -- Indexes on feedback table
 CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON public.feedback(user_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_usage_log_id ON public.feedback(usage_log_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_rating ON public.feedback(rating);
 CREATE INDEX IF NOT EXISTS idx_feedback_category ON public.feedback(category);
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON public.feedback(status);

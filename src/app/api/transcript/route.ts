@@ -15,6 +15,7 @@ interface TranscriptResponse {
   transcript?: TranscriptItem[];
   error?: string;
   requiresVerification?: boolean;
+  usageLogId?: string | null;
   usageInfo?: {
     remainingRequests: number;
     isAuthenticated: boolean;
@@ -287,6 +288,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             duration: item.duration,
             offset: item.offset
           })),
+          usageLogId: atomicResult.usageLogId ?? null,
           usageInfo: {
             remainingRequests: atomicResult.remainingRequests,
             isAuthenticated: atomicResult.isAuthenticated,

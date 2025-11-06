@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS public.anonymous_usage (
 CREATE TABLE IF NOT EXISTS public.feedback (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  usage_log_id UUID REFERENCES public.usage_logs(id) ON DELETE SET NULL,
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   category TEXT NOT NULL CHECK (category IN ('feature_request', 'bug_report', 'general_feedback', 'platform_request', 'ui_ux', 'performance')),
   title TEXT,

@@ -79,14 +79,7 @@ export function SummarySection() {
       setSummary(data.summary);
       setShowFeedbackPrompt(true);
       
-      // Refresh usage data after successful request
-      if (typeof window !== 'undefined' && 'refreshUsageData' in window && typeof (window as Window & { refreshUsageData: () => void }).refreshUsageData === 'function') {
-        try {
-          (window as Window & { refreshUsageData: () => void }).refreshUsageData();
-        } catch (error) {
-          console.warn('Failed to refresh usage data:', error);
-        }
-      }
+      // Do not refresh usage data for summary; summary requests are free
       
       // Track successful summary generation
       trackEvent('Summary Generated Successfully', {
