@@ -3,8 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { getUserUsageStats, getUsageStatsForDisplay } from '@/lib/usageTracking';
 
 // Import the same constants used in usageTracking
-const ANONYMOUS_LIMIT = 10;
-const AUTHENTICATED_DAILY_LIMIT = 20;
+const ANONYMOUS_LIMIT = 5;
+const AUTHENTICATED_DAILY_LIMIT = 10;
 
 interface UsageStatsResponse {
   success: boolean;

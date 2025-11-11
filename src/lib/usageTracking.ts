@@ -16,8 +16,8 @@ export interface UsageTrackingOptions {
 }
 
 // Constants
-const ANONYMOUS_LIMIT = 10;
-const AUTHENTICATED_DAILY_LIMIT = 20; // Generous limit for authenticated users
+const ANONYMOUS_LIMIT = 5;
+const AUTHENTICATED_DAILY_LIMIT = 10; // Adjusted limits to control costs
 const RESET_INTERVAL_HOURS = 24;
 
 // Check if user can make a request
