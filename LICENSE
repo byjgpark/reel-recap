@@ -1,0 +1,22 @@
+Business Source License 1.1 (BUSL-1.1)
+
+The text of this license is available at:
+https://mariadb.com/bsl11/
+
+Parameters
+Licensor: Jung I. Park
+Licensed Work: ReelRecap
+Additional Use Grant: You may use, copy, modify, and redistribute the Licensed Work
+  for non-commercial purposes only, including evaluation, development, testing, and
+  non-production use. Commercial or production use requires a separate commercial
+  agreement with the Licensor.
+Change Date: 2029-01-01
+Change License: Apache-2.0
+
+Notes
+- Until the Change Date, commercial use is expressly prohibited unless you obtain a
+  separate commercial license from the Licensor.
+- On or after the Change Date, the Licensed Work will be available under the
+  Change License specified above.
+
+Copyright (c) 2025 Jung I. Park
