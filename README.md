@@ -179,7 +179,13 @@ The application can be deployed on any platform that supports Next.js:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Business Source License 1.1 (BUSL-1.1).
+
+- Non-commercial use only until `2029-01-01`.
+- On or after `2029-01-01`, the project converts to `Apache-2.0`.
+- Commercial or production use before the Change Date requires a separate commercial agreement with the Licensor.
+
+See the [LICENSE](LICENSE) file for full terms.
 
 ## 🙏 Acknowledgments
 
