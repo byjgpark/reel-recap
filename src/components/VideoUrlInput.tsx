@@ -318,7 +318,7 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
                 <p className="text-sm text-red-700">
                   {usageInfo.isAuthenticated 
                     ? "You've reached your daily limit. Please try again tomorrow."
-                    : "You've used all 10 free requests. Sign in with Google to get 20 requests per day!"
+                    : "You've reached your daily limit. Please try again tomorrow."
                   }
                 </p>
               </div>
