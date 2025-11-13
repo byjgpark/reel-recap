@@ -5,7 +5,6 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Analytics } from '@vercel/analytics/react'
 import { FeedbackButton } from "@/components/FeedbackButton";
-import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,12 +34,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1952411329614588"
-          crossOrigin="anonymous"
-          strategy="beforeInteractive"
-        />
         <AuthProvider>
           <ThemeProvider>
             {children}
