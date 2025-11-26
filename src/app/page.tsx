@@ -73,29 +73,21 @@ export default function Home() {
 
         <div className="space-y-10">
           {/* Usage Display */}
-          <UsageDisplay 
-            className="max-w-2xl mx-auto" 
+          <UsageDisplay
+            className="max-w-2xl mx-auto"
             onUsageUpdate={setUsageInfo}
           />
-          
+
           <VideoUrlInput usageInfo={usageInfo} />
-          
+
           {/* <TranscriptDisplay /> */}
-          
+
           {/* <SummarySection /> */}
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-50 border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center text-slate-600">
-            <p className="text-sm">
-              Built with Next.js, Tailwind CSS, and AI. Extract transcripts from videos ≤3 minutes.
-            </p>
-          </div>
-        </div>
-      </footer>
+
 
       {/* Floating Feedback Button */}
       <FeedbackButton />
