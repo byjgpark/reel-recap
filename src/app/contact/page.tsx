@@ -7,7 +7,7 @@ export default function Contact() {
                 <h1 className="text-3xl font-bold text-slate-900 mb-6">Contact Us</h1>
                 <div className="prose prose-slate max-w-none text-slate-700">
                     <p className="mb-6 text-lg text-slate-700">
-                        We'd love to hear from you! Whether you have a question about features, pricing, need a demo, or anything else, our team is ready to answer all your questions.
+                        We&apos;d love to hear from you! Whether you have a question about features, pricing, need a demo, or anything else, our team is ready to answer all your questions.
                     </p>
 
                     <div className="bg-blue-50 p-6 rounded-lg border border-blue-100 mb-8">

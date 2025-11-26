@@ -84,15 +84,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
     const { transcript, language = 'English' }: SummarizeRequest = await request.json();
     
     // Extract client IP for usage tracking
-    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                    request.headers.get('x-real-ip') || 
-                    request.headers.get('cf-connecting-ip') || 
-                    'unknown';
-    
-    // Get current user from session
-    const user = await getCurrentUser(request);
-    const userId = user?.id || null;
-    
     // Summary requests are free: do not count or gate by usage limits
 
     if (!transcript) {
