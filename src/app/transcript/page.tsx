@@ -34,13 +34,13 @@ const getLanguageName = (code: string): string => {
 function TranscriptContent() {
   const searchParams = useSearchParams();
   const videoUrl = searchParams.get('url');
-  const { 
-    transcript, 
-    isLoading, 
-    error, 
-    showTimestamps, 
-    setShowTimestamps, 
-    thumbnail, 
+  const {
+    transcript,
+    isLoading,
+    error,
+    showTimestamps,
+    setShowTimestamps,
+    thumbnail,
     videoUrl: storeVideoUrl,
     summary,
     selectedLanguage,
@@ -57,7 +57,7 @@ function TranscriptContent() {
   } = useStore();
   const [copied, setCopied] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  
+
   // Use videoUrl from store if available, otherwise use from search params
   const currentVideoUrl = storeVideoUrl || videoUrl || '';
 
@@ -76,13 +76,13 @@ function TranscriptContent() {
       const timer = setTimeout(() => {
         setFeedbackPromptOpen(true);
         setFeedbackPromptShown(true);
-    }, 5000);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [transcript, isLoading, error, feedbackPromptOpen, feedbackPromptShown, setFeedbackPromptOpen, setFeedbackPromptShown]);
 
   const copyTranscript = async () => {
-    const transcriptText = showTimestamps 
+    const transcriptText = showTimestamps
       ? transcript.map(line => `${line.timestamp ? line.timestamp + ' ' : ''}${line.text}`).join('\n')
       : transcript.map(line => line.text).join(' ');
     try {
@@ -106,7 +106,7 @@ function TranscriptContent() {
     try {
       // Extract text content without timestamps from transcript
       const transcriptText = transcript.map(line => line.text).join(' ');
-      
+
       const headers = await getApiHeaders();
       const response = await fetch('/api/summarize', {
         method: 'POST',
@@ -131,7 +131,7 @@ function TranscriptContent() {
           setFeedbackPromptShown(true);
         }
       }, 5000);
-      
+
       // Do not refresh usage data for summary; summary requests are free
     } catch (err) {
       logger.error('Error generating summary', err, 'TranscriptPage');
@@ -191,18 +191,18 @@ function TranscriptContent() {
                   <Copy className="h-4 w-4" />
                 </button>
               </div>
-              
+
               {/* Video Thumbnail */}
               {thumbnail && currentVideoUrl && (
                 <div className="mb-4">
-                  <VideoThumbnail 
-                    thumbnail={thumbnail} 
-                    videoUrl={currentVideoUrl} 
-                    className="w-full" 
+                  <VideoThumbnail
+                    thumbnail={thumbnail}
+                    videoUrl={currentVideoUrl}
+                    className="w-full"
                   />
                 </div>
               )}
-              
+
               {/* Fallback when no thumbnail */}
               {(!thumbnail || !currentVideoUrl) && (
                 <div className="bg-slate-100 rounded-lg p-4 mb-4">
@@ -220,7 +220,7 @@ function TranscriptContent() {
 
               {/* Copy and Timestamp buttons */}
               <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                <button 
+                <button
                   onClick={copyTranscript}
                   disabled={transcript.length === 0}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-3 py-2.5 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base"
@@ -228,13 +228,12 @@ function TranscriptContent() {
                   <Copy className="h-4 w-4" />
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
-                <button 
+                <button
                   onClick={() => setShowTimestamps(!showTimestamps)}
-                  className={`flex-1 px-3 py-2.5 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 text-sm sm:text-base ${
-                    showTimestamps 
-                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 focus:ring-slate-500' 
+                  className={`flex-1 px-3 py-2.5 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 text-sm sm:text-base ${showTimestamps
+                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 focus:ring-slate-500'
                       : 'bg-blue-100 hover:bg-blue-200 text-blue-700 focus:ring-blue-500'
-                  }`}
+                    }`}
                 >
                   Timestamp {showTimestamps ? 'OFF' : 'ON'}
                 </button>
@@ -284,86 +283,86 @@ function TranscriptContent() {
 
           {/* AI Features Section */}
           <div className="space-y-6 order-2 lg:order-2">
-           <div className="bright-card p-4 sm:p-6 min-h-[400px] max-h-[80vh] lg:h-[600px] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center space-x-2 mb-6">
-          <Sparkles className="h-5 w-5 text-blue-500" />
-          <h3 className="text-lg font-semibold text-gray-900">
-            AI Summary
-          </h3>
-        </div>
-        
-        {/* Language Selection */}
-        <div className="mb-6">
-          <div className="flex items-center space-x-3 mb-3">
-            <Globe className="h-4 w-4 text-gray-600" />
-            <label htmlFor="language-select" className="text-sm text-gray-600">
-              Language:
-            </label>
-          </div>
-          <select
-            id="language-select"
-            value={selectedLanguage}
-            onChange={(e) => setSelectedLanguage(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            disabled={isGeneratingSummary}
-          >
-            {SUPPORTED_LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        {/* Generate Button */}
-        <button
-          onClick={generateSummary}
-          disabled={isGeneratingSummary}
-          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-500 disabled:cursor-not-allowed text-white px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center justify-center gap-2 mb-4 text-sm sm:text-base"
-        >
-          {isGeneratingSummary ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Generating...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              <span>Generate Summary</span>
-            </>
-          )}
-        </button>
-        
-        {/* Summary Display */}
-        {summary ? (
-          <div className="mt-6 flex-1 overflow-y-auto">
-            <div className="bg-slate-50 rounded-lg p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-gray-900">Summary</h4>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  {getLanguageName(selectedLanguage)}
-                </span>
+            <div className="bright-card p-4 sm:p-6 min-h-[400px] max-h-[80vh] lg:h-[600px] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center space-x-2 mb-6">
+                <Sparkles className="h-5 w-5 text-blue-500" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  AI Summary
+                </h3>
               </div>
-              <div className="prose prose-sm max-w-none">
-                <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{summary}</p>
+
+              {/* Language Selection */}
+              <div className="mb-6">
+                <div className="flex items-center space-x-3 mb-3">
+                  <Globe className="h-4 w-4 text-gray-600" />
+                  <label htmlFor="language-select" className="text-sm text-gray-600">
+                    Language:
+                  </label>
+                </div>
+                <select
+                  id="language-select"
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={isGeneratingSummary}
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Generate Button */}
+              <button
+                onClick={generateSummary}
+                disabled={isGeneratingSummary}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-500 disabled:cursor-not-allowed text-white px-4 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center justify-center gap-2 mb-4 text-sm sm:text-base"
+              >
+                {isGeneratingSummary ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    <span>Generate Summary</span>
+                  </>
+                )}
+              </button>
+
+              {/* Summary Display */}
+              {summary ? (
+                <div className="mt-6 flex-1 overflow-y-auto">
+                  <div className="bg-slate-50 rounded-lg p-3 sm:p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-gray-900">Summary</h4>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        {getLanguageName(selectedLanguage)}
+                      </span>
+                    </div>
+                    <div className="prose prose-sm max-w-none">
+                      <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{summary}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6 text-center">
+                  <Sparkles className="h-8 w-8 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">
+                    Generate an AI-powered summary of your video transcript in your preferred language.
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="mt-6 text-center">
-            <Sparkles className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">
-              Generate an AI-powered summary of your video transcript in your preferred language.
-            </p>
-          </div>
-        )}
-      </div>
           </div>
         </div>
       </main>
       {/* Feedback Modal */}
-      <FeedbackModal 
+      <FeedbackModal
         isOpen={feedbackPromptOpen}
         onClose={() => setFeedbackPromptOpen(false)}
         onSuccess={handleFeedbackSuccess}
