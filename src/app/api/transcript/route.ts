@@ -78,7 +78,12 @@ function validateVideoUrl(url: string): { isValid: boolean; platform: string; er
       return { isValid: true, platform: 'twitter' };
     }
 
-    return { isValid: false, platform: 'unknown', error: 'Unsupported platform. Supported platforms: YouTube, TikTok, Instagram, Twitter/X' };
+    // Facebook validation 
+    if (hostname.includes('facebook.com')) {
+      return { isValid: true, platform: 'facebook' };
+    }
+
+    return { isValid: false, platform: 'unknown', error: 'Unsupported platform. Supported platforms: YouTube, TikTok, Instagram, Twitter/X, Facebook' };
   } catch {
     return { isValid: false, platform: 'unknown', error: 'Invalid URL format' };
   }

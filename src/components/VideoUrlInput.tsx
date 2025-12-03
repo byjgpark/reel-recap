@@ -30,7 +30,8 @@ interface VideoUrlInputProps {
 const SUPPORTED_PLATFORMS = {
   youtube: /^(https?:\/\/)?(www\.)?(youtube\.com\/shorts\/|youtu\.be\/)/,
   tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)/,
-  instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/(reel|p)\/[\w-]+/
+  instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/(reel|p)\/[\w-]+/,
+  facebook: /^(https?:\/\/)?(www\.)?(facebook\.com\/(reel|watch|share)\/|fb\.watch\/)/
 };
 
 function validateVideoUrl(url: string): { isValid: boolean; platform?: string; error?: string } {
@@ -46,7 +47,7 @@ function validateVideoUrl(url: string): { isValid: boolean; platform?: string; e
 
   return {
     isValid: false,
-    error: 'Please enter a valid YouTube Shorts, TikTok, or Instagram Reel URL'
+    error: 'Please enter a valid YouTube Shorts, TikTok, Instagram Reel, or Facebook URL'
   };
 }
 
@@ -272,7 +273,7 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
               type="url"
               value={inputUrl}
               onChange={handleInputChange}
-              placeholder="Paste YouTube Shorts, TikTok, or Instagram Reel URL here..."
+              placeholder="Paste YouTube Shorts, TikTok, Instagram Reel, or Facebook URL here..."
               className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               disabled={isLoading}
             />
@@ -345,7 +346,7 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
       </form>
       
       <div className="mt-4 text-xs text-slate-600 text-center">
-        Supported platforms: <span className="text-blue-600 font-medium">YouTube Shorts</span>, <span className="text-blue-600 font-medium">TikTok</span>, <span className="text-blue-600 font-medium">Instagram Reels</span>
+        Supported platforms: <span className="text-blue-600 font-medium">YouTube Shorts</span>, <span className="text-blue-600 font-medium">TikTok</span>, <span className="text-blue-600 font-medium">Instagram Reels</span>, <span className="text-blue-600 font-medium">Facebook (Reels/Watch/Share)</span>
         <br />
         <span className="text-amber-600 font-medium">⏱ Videos must be 3 minutes or less</span>
       </div>
