@@ -60,7 +60,7 @@ export function AuthButton() {
 
     return (
       <div className="relative" ref={dropdownRef}>
-        {/* Mobile: Compact user button */}
+        {/* User button */}
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"

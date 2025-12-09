@@ -6,6 +6,7 @@ import { UsageDisplay } from '@/components/UsageDisplay';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';
 import { AuthButton } from '@/components/AuthButton';
+import { HistoryButton } from '@/components/HistoryButton';
 import { FeedbackButton } from '@/components/FeedbackButton';
 
 interface UsageInfo {
@@ -40,7 +41,10 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <AuthButton />
+            <div className="flex items-center space-x-3">
+              <HistoryButton />
+              <AuthButton />
+            </div>
           </div>
         </div>
       </header>
