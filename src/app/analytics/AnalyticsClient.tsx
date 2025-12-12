@@ -20,21 +20,58 @@ interface Stats {
     authenticatedClicks: number;
 }
 
+interface FeatureStats {
+    history: Stats;
+    bulk_extractor_tab: Stats;
+}
+
 export default function AnalyticsClient() {
     const [clicks, setClicks] = useState<ClickData[]>([]);
     const [stats, setStats] = useState<Stats>({ totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0 });
+    const [featureStats, setFeatureStats] = useState<FeatureStats>({
+        history: { totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0 },
+        bulk_extractor_tab: { totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0 }
+    });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedFeature, setSelectedFeature] = useState<string>('all');
+
+    const calculateStats = (data: ClickData[]): Stats => {
+        const uniqueUserIds = new Set(data.map(c => c.user_id || c.ip_address).filter(Boolean));
+        return {
+            totalClicks: data.length,
+            uniqueUsers: uniqueUserIds.size,
+            authenticatedClicks: data.filter(c => c.user_email).length
+        };
+    };
 
     const fetchAnalytics = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/analytics/feature-interest?feature=history');
+            // Always fetch all data so we can compute split stats locally
+            const response = await fetch('/api/analytics/feature-interest');
             const data = await response.json();
 
             if (data.success) {
-                setClicks(data.clicks);
-                setStats(data.stats);
+                const allClicks = data.clicks as ClickData[];
+                setClicks(allClicks);
+                
+                // Calculate split stats
+                const historyClicks = allClicks.filter(c => c.feature === 'history');
+                const bulkClicks = allClicks.filter(c => c.feature === 'bulk_extractor_tab');
+
+                setFeatureStats({
+                    history: calculateStats(historyClicks),
+                    bulk_extractor_tab: calculateStats(bulkClicks)
+                });
+
+                // Set current view stats based on selection
+                if (selectedFeature === 'all') {
+                    setStats(data.stats);
+                } else {
+                    const filteredClicks = allClicks.filter(c => c.feature === selectedFeature);
+                    setStats(calculateStats(filteredClicks));
+                }
             } else {
                 setError(data.error || 'Failed to fetch analytics');
             }
@@ -48,7 +85,19 @@ export default function AnalyticsClient() {
 
     useEffect(() => {
         fetchAnalytics();
-    }, []);
+    }, []); // Fetch once on mount
+
+    // Update displayed stats when selection changes (without re-fetching)
+    useEffect(() => {
+        if (clicks.length > 0) {
+            if (selectedFeature === 'all') {
+                setStats(calculateStats(clicks));
+            } else {
+                const filteredClicks = clicks.filter(c => c.feature === selectedFeature);
+                setStats(calculateStats(filteredClicks));
+            }
+        }
+    }, [selectedFeature, clicks]);
 
     if (loading) {
         return (
@@ -74,13 +123,24 @@ export default function AnalyticsClient() {
                             </Link>
                             <h1 className="text-xl font-bold text-slate-800">📊 Feature Interest Analytics</h1>
                         </div>
-                        <button
-                            onClick={fetchAnalytics}
-                            className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                            <span>Refresh</span>
-                        </button>
+                        <div className="flex items-center space-x-4">
+                            <select
+                                value={selectedFeature}
+                                onChange={(e) => setSelectedFeature(e.target.value)}
+                                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="all">All Features</option>
+                                <option value="history">History</option>
+                                <option value="bulk_extractor_tab">Bulk Extractor</option>
+                            </select>
+                            <button
+                                onClick={fetchAnalytics}
+                                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                <span>Refresh</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -92,8 +152,69 @@ export default function AnalyticsClient() {
                     </div>
                 )}
 
+                {/* Feature Comparison Cards */}
+                {selectedFeature === 'all' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        {/* History Stats */}
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
+                            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                                <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                    <Users className="w-4 h-4 text-blue-600" />
+                                </span>
+                                History Feature
+                            </h3>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase">Clicks</p>
+                                    <p className="text-2xl font-bold text-slate-800">{featureStats.history.totalClicks}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase">Users</p>
+                                    <p className="text-2xl font-bold text-slate-800">{featureStats.history.uniqueUsers}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase">Auth %</p>
+                                    <p className="text-2xl font-bold text-slate-800">
+                                        {featureStats.history.totalClicks > 0 
+                                            ? Math.round((featureStats.history.authenticatedClicks / featureStats.history.totalClicks) * 100) 
+                                            : 0}%
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bulk Extractor Stats */}
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
+                            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                                <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                                    <BarChart3 className="w-4 h-4 text-purple-600" />
+                                </span>
+                                Bulk Extractor
+                            </h3>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase">Clicks</p>
+                                    <p className="text-2xl font-bold text-slate-800">{featureStats.bulk_extractor_tab.totalClicks}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase">Users</p>
+                                    <p className="text-2xl font-bold text-slate-800">{featureStats.bulk_extractor_tab.uniqueUsers}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase">Auth %</p>
+                                    <p className="text-2xl font-bold text-slate-800">
+                                        {featureStats.bulk_extractor_tab.totalClicks > 0 
+                                            ? Math.round((featureStats.bulk_extractor_tab.authenticatedClicks / featureStats.bulk_extractor_tab.totalClicks) * 100) 
+                                            : 0}%
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
                         <div className="flex items-center space-x-4">
                             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -129,7 +250,7 @@ export default function AnalyticsClient() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Decision Guide */}
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200 mb-8">

@@ -5,13 +5,13 @@ import { History, X, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function HistoryButton() {
-    const { isAuthenticated } = useAuth();
+    // const { isAuthenticated } = useAuth();
     const [showComingSoonModal, setShowComingSoonModal] = useState(false);
 
     // Only show for authenticated users
-    if (!isAuthenticated) {
-        return null;
-    }
+    // if (!isAuthenticated) {
+    //     return null;
+    // }
 
     const handleHistoryClick = async () => {
         // Track the click
