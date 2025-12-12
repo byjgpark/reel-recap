@@ -69,16 +69,26 @@ export async function GET(request: NextRequest) {
 
     const clicksData = (clicks || []) as ClickData[];
 
-    // Calculate statistics
     const totalClicks = clicksData.length;
-    const uniqueUserIds = new Set(clicksData.map((click: ClickData) => click.user_id).filter(Boolean));
-    const uniqueUsers = uniqueUserIds.size;
+    const identityKeys = clicksData
+      .map((click: ClickData) => click.user_id ?? click.ip_address)
+      .filter(Boolean) as string[];
+    const uniqueUsers = new Set(identityKeys).size;
     const authenticatedClicks = clicksData.filter((click: ClickData) => click.user_email).length;
+
+    const countsByIdentity: Record<string, number> = {};
+    for (const key of identityKeys) {
+      countsByIdentity[key] = (countsByIdentity[key] ?? 0) + 1;
+    }
+    const repeatUsers = Object.values(countsByIdentity).filter(c => c >= 2).length;
+    const avgClicksPerUser = uniqueUsers > 0 ? Number((totalClicks / uniqueUsers).toFixed(2)) : 0;
 
     const stats = {
       totalClicks,
       uniqueUsers,
       authenticatedClicks,
+      repeatUsers,
+      avgClicksPerUser,
     };
 
     return NextResponse.json({

@@ -25,6 +25,29 @@ export async function POST(request: NextRequest) {
     // Get user agent
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
+    const now = new Date();
+    let recentQuery = supabaseAdmin
+      .from('feature_interest_clicks')
+      .select('timestamp')
+      .eq('feature', feature)
+      .order('timestamp', { ascending: false })
+      .limit(1);
+
+    if (user?.id) {
+      recentQuery = recentQuery.eq('user_id', user.id);
+    } else {
+      recentQuery = recentQuery.eq('ip_address', ipAddress);
+    }
+
+    const { data: recent, error: recentError } = await recentQuery;
+    if (!recentError && recent && recent.length > 0) {
+      const lastTs = new Date(recent[0].timestamp);
+      const secondsSinceLast = (now.getTime() - lastTs.getTime()) / 1000;
+      if (secondsSinceLast < 60) {
+        return NextResponse.json({ success: true, deduped: true });
+      }
+    }
+
     // Insert click record
     const { error: insertError } = await supabaseAdmin
       .from('feature_interest_clicks')
