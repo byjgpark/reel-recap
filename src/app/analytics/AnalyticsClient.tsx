@@ -27,6 +27,13 @@ interface FeatureStats {
     bulk_extractor_tab: Stats;
 }
 
+type DecisionStatus = 'build' | 'wait' | 'skip';
+
+interface Decision {
+    status: DecisionStatus;
+    reason: string;
+}
+
 export default function AnalyticsClient() {
     const [clicks, setClicks] = useState<ClickData[]>([]);
     const [stats, setStats] = useState<Stats>({ totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0, repeatUsers: 0, avgClicksPerUser: 0 });
@@ -37,6 +44,11 @@ export default function AnalyticsClient() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedFeature, setSelectedFeature] = useState<string>('all');
+    const [decision, setDecision] = useState<Decision>({ status: 'wait', reason: '' });
+    const [featureDecisions, setFeatureDecisions] = useState<{ history: Decision; bulk_extractor_tab: Decision }>({
+        history: { status: 'wait', reason: '' },
+        bulk_extractor_tab: { status: 'wait', reason: '' }
+    });
 
     const calculateStats = (data: ClickData[]): Stats => {
         const identities = data.map(c => c.user_id || c.ip_address).filter(Boolean) as string[];
@@ -78,12 +90,34 @@ export default function AnalyticsClient() {
                     bulk_extractor_tab: calculateStats(bulkClicks)
                 });
 
+                const evalDecision = (list: ClickData[]): Decision => {
+                    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+                    const recent = list.filter(c => new Date(c.timestamp).getTime() >= sevenDaysAgo);
+                    const s = calculateStats(recent);
+                    const authPct = s.totalClicks > 0 ? s.authenticatedClicks / s.totalClicks : 0;
+                    const repeatRate = s.uniqueUsers > 0 ? s.repeatUsers / s.uniqueUsers : 0;
+                    if (s.uniqueUsers >= 10 && authPct >= 0.5 && (s.avgClicksPerUser >= 1.3 || repeatRate >= 0.3)) {
+                        return { status: 'build', reason: '10+ unique, ≥50% auth, strong repeats' };
+                    }
+                    if (s.uniqueUsers >= 5 && s.totalClicks >= 5) {
+                        return { status: 'wait', reason: '5–9 unique or moderate repeats' };
+                    }
+                    return { status: 'skip', reason: 'Low unique or mostly anonymous' };
+                };
+
+                setFeatureDecisions({
+                    history: evalDecision(historyClicks),
+                    bulk_extractor_tab: evalDecision(bulkClicks)
+                });
+
                 // Set current view stats based on selection (compute client-side for parity)
                 if (selectedFeature === 'all') {
                     setStats(calculateStats(allClicks));
+                    setDecision(evalDecision(allClicks));
                 } else {
                     const filteredClicks = allClicks.filter(c => c.feature === selectedFeature);
                     setStats(calculateStats(filteredClicks));
+                    setDecision(evalDecision(filteredClicks));
                 }
             } else {
                 setError(data.error || 'Failed to fetch analytics');
@@ -165,6 +199,20 @@ export default function AnalyticsClient() {
                     </div>
                 )}
 
+                <div className={
+                    `mb-6 inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium ` +
+                    (decision.status === 'build'
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : decision.status === 'wait'
+                        ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                        : 'bg-red-50 border-red-200 text-red-800')
+                }>
+                    <span className="mr-2">
+                        {decision.status === 'build' ? '✅ Build It' : decision.status === 'wait' ? '⏳ Wait' : '❌ Skip'}
+                    </span>
+                    <span className="text-slate-600 ml-2">{decision.reason}</span>
+                </div>
+
                 {/* Feature Comparison Cards */}
                 {selectedFeature === 'all' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -175,6 +223,16 @@ export default function AnalyticsClient() {
                                     <Users className="w-5 h-5 text-blue-600" />
                                 </span>
                                 History Feature
+                                <span className={
+                                    `ml-3 px-2 py-1 rounded-md border text-xs ` +
+                                    (featureDecisions.history.status === 'build'
+                                        ? 'bg-green-50 border-green-200 text-green-800'
+                                        : featureDecisions.history.status === 'wait'
+                                        ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                                        : 'bg-red-50 border-red-200 text-red-800')
+                                }>
+                                    {featureDecisions.history.status === 'build' ? 'Build' : featureDecisions.history.status === 'wait' ? 'Wait' : 'Skip'}
+                                </span>
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
                                 <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start border-b sm:border-b-0 border-slate-100 pb-3 sm:pb-0">
@@ -204,6 +262,16 @@ export default function AnalyticsClient() {
                                     <BarChart3 className="w-5 h-5 text-purple-600" />
                                 </span>
                                 Bulk Extractor
+                                <span className={
+                                    `ml-3 px-2 py-1 rounded-md border text-xs ` +
+                                    (featureDecisions.bulk_extractor_tab.status === 'build'
+                                        ? 'bg-green-50 border-green-200 text-green-800'
+                                        : featureDecisions.bulk_extractor_tab.status === 'wait'
+                                        ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                                        : 'bg-red-50 border-red-200 text-red-800')
+                                }>
+                                    {featureDecisions.bulk_extractor_tab.status === 'build' ? 'Build' : featureDecisions.bulk_extractor_tab.status === 'wait' ? 'Wait' : 'Skip'}
+                                </span>
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
                                 <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start border-b sm:border-b-0 border-slate-100 pb-3 sm:pb-0">
