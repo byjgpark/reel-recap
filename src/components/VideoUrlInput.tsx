@@ -307,7 +307,7 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
             </h3>
             
             <p className="text-slate-600 mb-6">
-              Process multiple videos at once to save time. We're working hard to bring this feature to you.
+              Process multiple videos at once to save time. We&apos;re working hard to bring this feature to you.
             </p>
             
             <div className="bg-purple-50 rounded-lg p-3 border border-purple-100 mb-4">
@@ -329,31 +329,35 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
 
       <div className="flex flex-col space-y-6">
         {/* Mode Toggle */}
-        <div className="flex p-1 bg-slate-100 rounded-lg w-full">
+        <div className="flex p-1.5 bg-slate-100 rounded-xl w-full">
           <button
             type="button"
             onClick={() => handleModeChange('single')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${
+            className={`flex-1 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 py-3 sm:py-3.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
               extractionMode === 'single'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <Video className="w-4 h-4" />
+            <Video className="w-4 h-4 sm:w-4 sm:h-4" />
             <span>Single Video</span>
           </button>
           <button
             type="button"
             onClick={() => handleModeChange('bulk')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${
+            className={`flex-1 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 py-3 sm:py-3.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
               extractionMode === 'bulk'
-                ? 'bg-white text-purple-600 shadow-sm'
+                ? 'bg-white text-purple-600 shadow-sm ring-1 ring-black/5'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Bulk Extraction</span>
-            <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">New</span>
+            <div className="flex items-center">
+              <Layers className="w-4 h-4 sm:w-4 sm:h-4" />
+            </div>
+            <div className="flex flex-col sm:flex-row items-center sm:space-x-2">
+              <span>Bulk Extraction</span>
+              <span className="mt-0.5 sm:mt-0 ml-0 sm:ml-1.5 text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">New</span>
+            </div>
           </button>
         </div>
 

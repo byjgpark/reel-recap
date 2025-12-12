@@ -59,25 +59,25 @@ const getLanguagePrompt = (language: string): string => {
 };
 
 // Helper function to get user from session
-async function getCurrentUser(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return null;
-    }
-
-    const token = authHeader.substring(7);
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error || !user) {
-      return null;
-    }
-    
-    return user;
-  } catch {
-    return null;
-  }
-}
+// async function getCurrentUser(request: NextRequest) {
+//   try {
+//     const authHeader = request.headers.get('authorization');
+//     if (!authHeader?.startsWith('Bearer ')) {
+//       return null;
+//     }
+//
+//     const token = authHeader.substring(7);
+//     const { data: { user }, error } = await supabase.auth.getUser(token);
+//    
+//     if (error || !user) {
+//       return null;
+//     }
+//    
+//     return user;
+//   } catch {
+//     return null;
+//   }
+// }
 
 export async function POST(request: NextRequest): Promise<NextResponse<SummarizeResponse>> {
   try {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BarChart3, Users, MousePointer, ArrowLeft, RefreshCw } from 'lucide-react';
 
@@ -45,7 +45,7 @@ export default function AnalyticsClient() {
         };
     };
 
-    const fetchAnalytics = async () => {
+    const fetchAnalytics = useCallback(async () => {
         try {
             setLoading(true);
             // Always fetch all data so we can compute split stats locally
@@ -81,11 +81,11 @@ export default function AnalyticsClient() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedFeature]);
 
     useEffect(() => {
         fetchAnalytics();
-    }, []); // Fetch once on mount
+    }, [fetchAnalytics]); // Fetch once on mount
 
     // Update displayed stats when selection changes (without re-fetching)
     useEffect(() => {
@@ -156,25 +156,25 @@ export default function AnalyticsClient() {
                 {selectedFeature === 'all' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         {/* History Stats */}
-                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
-                            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-                                <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                    <Users className="w-4 h-4 text-blue-600" />
+                        <div className="bg-white rounded-xl p-6 sm:p-8 shadow-lg border border-slate-200">
+                            <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-6 flex items-center">
+                                <span className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mr-4 shrink-0">
+                                    <Users className="w-5 h-5 text-blue-600" />
                                 </span>
                                 History Feature
                             </h3>
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase">Clicks</p>
-                                    <p className="text-2xl font-bold text-slate-800">{featureStats.history.totalClicks}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+                                <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start border-b sm:border-b-0 border-slate-100 pb-3 sm:pb-0">
+                                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-0 sm:mb-1">Clicks</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-slate-800">{featureStats.history.totalClicks}</p>
                                 </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase">Users</p>
-                                    <p className="text-2xl font-bold text-slate-800">{featureStats.history.uniqueUsers}</p>
+                                <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start border-b sm:border-b-0 border-slate-100 pb-3 sm:pb-0">
+                                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-0 sm:mb-1">Users</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-slate-800">{featureStats.history.uniqueUsers}</p>
                                 </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase">Auth %</p>
-                                    <p className="text-2xl font-bold text-slate-800">
+                                <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start">
+                                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-0 sm:mb-1">Auth %</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-slate-800">
                                         {featureStats.history.totalClicks > 0 
                                             ? Math.round((featureStats.history.authenticatedClicks / featureStats.history.totalClicks) * 100) 
                                             : 0}%
@@ -184,25 +184,25 @@ export default function AnalyticsClient() {
                         </div>
 
                         {/* Bulk Extractor Stats */}
-                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
-                            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-                                <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                                    <BarChart3 className="w-4 h-4 text-purple-600" />
+                        <div className="bg-white rounded-xl p-6 sm:p-8 shadow-lg border border-slate-200">
+                            <h3 className="text-lg sm:text-xl font-semibold text-slate-800 mb-6 flex items-center">
+                                <span className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mr-4 shrink-0">
+                                    <BarChart3 className="w-5 h-5 text-purple-600" />
                                 </span>
                                 Bulk Extractor
                             </h3>
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase">Clicks</p>
-                                    <p className="text-2xl font-bold text-slate-800">{featureStats.bulk_extractor_tab.totalClicks}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+                                <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start border-b sm:border-b-0 border-slate-100 pb-3 sm:pb-0">
+                                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-0 sm:mb-1">Clicks</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-slate-800">{featureStats.bulk_extractor_tab.totalClicks}</p>
                                 </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase">Users</p>
-                                    <p className="text-2xl font-bold text-slate-800">{featureStats.bulk_extractor_tab.uniqueUsers}</p>
+                                <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start border-b sm:border-b-0 border-slate-100 pb-3 sm:pb-0">
+                                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-0 sm:mb-1">Users</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-slate-800">{featureStats.bulk_extractor_tab.uniqueUsers}</p>
                                 </div>
-                                <div>
-                                    <p className="text-xs text-slate-500 uppercase">Auth %</p>
-                                    <p className="text-2xl font-bold text-slate-800">
+                                <div className="text-left sm:text-left flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start">
+                                    <p className="text-sm font-medium text-slate-500 uppercase tracking-wide mb-0 sm:mb-1">Auth %</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-slate-800">
                                         {featureStats.bulk_extractor_tab.totalClicks > 0 
                                             ? Math.round((featureStats.bulk_extractor_tab.authenticatedClicks / featureStats.bulk_extractor_tab.totalClicks) * 100) 
                                             : 0}%
@@ -213,44 +213,46 @@ export default function AnalyticsClient() {
                     </div>
                 )}
 
-                {/* Stats Cards */}
-                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
-                        <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                <MousePointer className="w-6 h-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-500">Total Clicks</p>
-                                <p className="text-3xl font-bold text-slate-800">{stats.totalClicks}</p>
+                {/* Stats Cards (Single Feature View) */}
+                {selectedFeature !== 'all' && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
+                            <div className="flex items-center space-x-4">
+                                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <MousePointer className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-slate-500">Total Clicks</p>
+                                    <p className="text-3xl font-bold text-slate-800">{stats.totalClicks}</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
-                        <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                                <Users className="w-6 h-6 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-500">Unique Users</p>
-                                <p className="text-3xl font-bold text-slate-800">{stats.uniqueUsers}</p>
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
+                            <div className="flex items-center space-x-4">
+                                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                    <Users className="w-6 h-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-slate-500">Unique Users</p>
+                                    <p className="text-3xl font-bold text-slate-800">{stats.uniqueUsers}</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
-                        <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                <BarChart3 className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-500">Authenticated</p>
-                                <p className="text-3xl font-bold text-slate-800">{stats.authenticatedClicks}</p>
+                        <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200">
+                            <div className="flex items-center space-x-4">
+                                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                    <BarChart3 className="w-6 h-6 text-purple-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-slate-500">Authenticated</p>
+                                    <p className="text-3xl font-bold text-slate-800">{stats.authenticatedClicks}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div> */}
+                )}
 
                 {/* Decision Guide */}
                 <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200 mb-8">
