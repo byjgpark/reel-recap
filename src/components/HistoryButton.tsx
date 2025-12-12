@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { History, X, Sparkles } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+// import { useAuth } from '@/contexts/AuthContext';
 
 export function HistoryButton() {
     // const { isAuthenticated } = useAuth();

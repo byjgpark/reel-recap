@@ -144,25 +144,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       }
       
       // Check if verification is required for anonymous users near limit
-      const needsVerification = usageCheck.remainingRequests <= 1;
+      // const needsVerification = usageCheck.remainingRequests <= 1;
       
-      if (needsVerification && !captchaToken) {
-        logger.warn('Verification required', { ip: clientIP }, 'TranscriptAPI');
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: `Please complete verification to continue.`,
-            requiresVerification: true,
-            usageInfo: {
-              remainingRequests: usageCheck.remainingRequests,
-              isAuthenticated: usageCheck.isAuthenticated,
-              requiresAuth: usageCheck.requiresAuth,
-              message: usageCheck.message
-            }
-          },
-          { status: 429 }
-        );
-      }
+      // if (needsVerification && !captchaToken) {
+      //   logger.warn('Verification required', { ip: clientIP }, 'TranscriptAPI');
+      //   return NextResponse.json(
+      //     { 
+      //       success: false, 
+      //       error: `Please complete verification to continue.`,
+      //       requiresVerification: true,
+      //       usageInfo: {
+      //         remainingRequests: usageCheck.remainingRequests,
+      //         isAuthenticated: usageCheck.isAuthenticated,
+      //         requiresAuth: usageCheck.requiresAuth,
+      //         message: usageCheck.message
+      //       }
+      //     },
+      //     { status: 429 }
+      //   );
+      // }
       
       // Verify CAPTCHA token if provided
       if (captchaToken) {

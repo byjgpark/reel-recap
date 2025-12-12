@@ -49,7 +49,7 @@ function TranscriptContent() {
     setSummary,
     setIsGeneratingSummary,
     setError,
-    usageLogId,
+    // usageLogId,
     feedbackPromptOpen,
     setFeedbackPromptOpen,
     feedbackPromptShown,
