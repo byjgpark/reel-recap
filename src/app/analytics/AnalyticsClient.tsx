@@ -18,6 +18,8 @@ interface Stats {
     totalClicks: number;
     uniqueUsers: number;
     authenticatedClicks: number;
+    repeatUsers: number;
+    avgClicksPerUser: number;
 }
 
 interface FeatureStats {
@@ -27,21 +29,32 @@ interface FeatureStats {
 
 export default function AnalyticsClient() {
     const [clicks, setClicks] = useState<ClickData[]>([]);
-    const [stats, setStats] = useState<Stats>({ totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0 });
+    const [stats, setStats] = useState<Stats>({ totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0, repeatUsers: 0, avgClicksPerUser: 0 });
     const [featureStats, setFeatureStats] = useState<FeatureStats>({
-        history: { totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0 },
-        bulk_extractor_tab: { totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0 }
+        history: { totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0, repeatUsers: 0, avgClicksPerUser: 0 },
+        bulk_extractor_tab: { totalClicks: 0, uniqueUsers: 0, authenticatedClicks: 0, repeatUsers: 0, avgClicksPerUser: 0 }
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedFeature, setSelectedFeature] = useState<string>('all');
 
     const calculateStats = (data: ClickData[]): Stats => {
-        const uniqueUserIds = new Set(data.map(c => c.user_id || c.ip_address).filter(Boolean));
+        const identities = data.map(c => c.user_id || c.ip_address).filter(Boolean) as string[];
+        const uniqueUserIds = new Set(identities);
+        const countsByIdentity: Record<string, number> = {};
+        for (const id of identities) {
+            countsByIdentity[id] = (countsByIdentity[id] ?? 0) + 1;
+        }
+        const repeatUsers = Object.values(countsByIdentity).filter(c => c >= 2).length;
+        const totalClicks = data.length;
+        const uniqueUsers = uniqueUserIds.size;
+        const avgClicksPerUser = uniqueUsers > 0 ? Number((totalClicks / uniqueUsers).toFixed(2)) : 0;
         return {
-            totalClicks: data.length,
-            uniqueUsers: uniqueUserIds.size,
-            authenticatedClicks: data.filter(c => c.user_email).length
+            totalClicks,
+            uniqueUsers,
+            authenticatedClicks: data.filter(c => c.user_email).length,
+            repeatUsers,
+            avgClicksPerUser,
         };
     };
 
@@ -65,9 +78,9 @@ export default function AnalyticsClient() {
                     bulk_extractor_tab: calculateStats(bulkClicks)
                 });
 
-                // Set current view stats based on selection
+                // Set current view stats based on selection (compute client-side for parity)
                 if (selectedFeature === 'all') {
-                    setStats(data.stats);
+                    setStats(calculateStats(allClicks));
                 } else {
                     const filteredClicks = allClicks.filter(c => c.feature === selectedFeature);
                     setStats(calculateStats(filteredClicks));
@@ -179,6 +192,7 @@ export default function AnalyticsClient() {
                                             ? Math.round((featureStats.history.authenticatedClicks / featureStats.history.totalClicks) * 100) 
                                             : 0}%
                                     </p>
+                                    <p className="text-xs text-slate-500 mt-1">Avg/user: {featureStats.history.avgClicksPerUser} • Repeats: {featureStats.history.repeatUsers}</p>
                                 </div>
                             </div>
                         </div>
@@ -207,6 +221,7 @@ export default function AnalyticsClient() {
                                             ? Math.round((featureStats.bulk_extractor_tab.authenticatedClicks / featureStats.bulk_extractor_tab.totalClicks) * 100) 
                                             : 0}%
                                     </p>
+                                    <p className="text-xs text-slate-500 mt-1">Avg/user: {featureStats.bulk_extractor_tab.avgClicksPerUser} • Repeats: {featureStats.bulk_extractor_tab.repeatUsers}</p>
                                 </div>
                             </div>
                         </div>
@@ -236,6 +251,7 @@ export default function AnalyticsClient() {
                                 <div>
                                     <p className="text-sm text-slate-500">Unique Users</p>
                                     <p className="text-3xl font-bold text-slate-800">{stats.uniqueUsers}</p>
+                                    <p className="text-xs text-slate-500 mt-1">Repeats: {stats.repeatUsers}</p>
                                 </div>
                             </div>
                         </div>
@@ -248,6 +264,7 @@ export default function AnalyticsClient() {
                                 <div>
                                     <p className="text-sm text-slate-500">Authenticated</p>
                                     <p className="text-3xl font-bold text-slate-800">{stats.authenticatedClicks}</p>
+                                    <p className="text-xs text-slate-500 mt-1">Avg/user: {stats.avgClicksPerUser}</p>
                                 </div>
                             </div>
                         </div>
