@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { isAdminEmail } from '@/lib/adminAuth';
 
 interface FeedbackSubmission {
   rating: number;
@@ -142,8 +143,8 @@ export async function GET(request: NextRequest) {
     };
 
     // For non-admin users, only show their own feedback
-    const isAdmin = user?.email === 'admin@reelrecap.com' || user?.email === 'jungipark@example.com';
-    const userId = isAdmin ? null : user?.id;
+    const userIsAdmin = isAdminEmail(user?.email);
+    const userId = userIsAdmin ? null : user?.id;
 
     const supabase = await createClient();
     const { data, error } = await supabase.rpc('get_feedback', {
