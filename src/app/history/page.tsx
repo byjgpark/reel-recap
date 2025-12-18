@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Trash2, ExternalLink, Calendar, FileText, Sparkles, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthButton } from '@/components/AuthButton';
-import { HistoryButton } from '@/components/HistoryButton';
 import { VideoThumbnail } from '@/components/VideoThumbnail';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 
@@ -29,9 +28,30 @@ export default function HistoryPage() {
 
   const isImporting = useRef(false);
 
+  const fetchHistory = useCallback(async () => {
+    try {
+      const response = await fetch('/api/history');
+      if (response.status === 401) {
+        router.push('/'); // Redirect if unauthorized
+        return;
+      }
+      const data = await response.json();
+      if (data.success) {
+        setHistory(data.history);
+      } else {
+        setError(data.error);
+      }
+    } catch (err) {
+      setError('Failed to load history');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
   useEffect(() => {
     fetchHistory();
-  }, []);
+  }, [fetchHistory]);
 
   useEffect(() => {
     const importPending = async () => {
@@ -58,7 +78,7 @@ export default function HistoryPage() {
           // If failed, restore it so user can try again (optional, but good UX)
           localStorage.setItem('pending_history', pending);
         }
-      } catch (e) {
+      } catch {
         // If error, restore
         localStorage.setItem('pending_history', pending);
       } finally {
@@ -66,28 +86,7 @@ export default function HistoryPage() {
       }
     };
     importPending();
-  }, [user]);
-
-  const fetchHistory = async () => {
-    try {
-      const response = await fetch('/api/history');
-      if (response.status === 401) {
-        router.push('/'); // Redirect if unauthorized
-        return;
-      }
-      const data = await response.json();
-      if (data.success) {
-        setHistory(data.history);
-      } else {
-        setError(data.error);
-      }
-    } catch (err) {
-      setError('Failed to load history');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, fetchHistory]);
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
