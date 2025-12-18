@@ -53,6 +53,26 @@ export function extractInstagramVideoId(url: string): string | null {
   return null;
 }
 
+// Extract video ID from Facebook URL
+export function extractFacebookVideoId(url: string): string | null {
+  const patterns = [
+    /facebook\.com\/reel\/(\d+)/,
+    /facebook\.com\/.*\/videos\/(\d+)/,
+    /fb\.watch\/(\w+)/,
+    /facebook\.com\/share\/r\/([a-zA-Z0-9]+)/,
+    /facebook\.com\/share\/v\/([a-zA-Z0-9]+)/
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
 // Determine platform from URL
 export function detectPlatform(url: string): string {
   try {
@@ -67,6 +87,9 @@ export function detectPlatform(url: string): string {
     }
     if (hostname.includes('instagram.com')) {
       return 'instagram';
+    }
+    if (hostname.includes('facebook.com') || hostname.includes('fb.watch')) {
+      return 'facebook';
     }
     if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
       return 'twitter';
@@ -92,6 +115,10 @@ export function generateThumbnailUrl(videoId: string, platform: string): string 
     case 'instagram':
       // Instagram doesn't provide direct thumbnail URLs, use a placeholder
       return '/api/placeholder/instagram-thumbnail';
+    
+    case 'facebook':
+      // Facebook doesn't provide direct thumbnail URLs, use a placeholder
+      return '/api/placeholder/facebook-thumbnail';
     
     case 'twitter':
       // Twitter doesn't provide direct thumbnail URLs, use a placeholder
@@ -121,6 +148,9 @@ export function generateThumbnailFromUrl(url: string): VideoThumbnail | null {
       break;
     case 'instagram':
       videoId = extractInstagramVideoId(url);
+      break;
+    case 'facebook':
+      videoId = extractFacebookVideoId(url);
       break;
     case 'twitter':
       // For Twitter, we'll use the URL itself as the ID

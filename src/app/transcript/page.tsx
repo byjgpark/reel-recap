@@ -2,13 +2,17 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Copy, AlertCircle, Sparkles, Globe } from 'lucide-react';
+import { Copy, AlertCircle, Sparkles, Globe, History, Save, ArrowLeft } from 'lucide-react';
+import { HistoryButton } from '@/components/HistoryButton';
 import { VideoThumbnail } from '@/components/VideoThumbnail';
 import { useStore } from '@/store/useStore';
 import Link from 'next/link';
 import { getApiHeaders } from '@/utils/auth';
 import { logger } from '@/utils/logger';
+import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { FeedbackModal } from '@/components/FeedbackModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -33,10 +37,13 @@ const getLanguageName = (code: string): string => {
 
 function TranscriptContent() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const videoUrl = searchParams.get('url');
+  const historyId = searchParams.get('id');
   const {
     transcript,
     isLoading,
+    setIsLoading,
     error,
     showTimestamps,
     setShowTimestamps,
@@ -49,6 +56,9 @@ function TranscriptContent() {
     setSummary,
     setIsGeneratingSummary,
     setError,
+    setTranscript,
+    setVideoUrl,
+    setThumbnail,
     // usageLogId,
     feedbackPromptOpen,
     setFeedbackPromptOpen,
@@ -62,13 +72,76 @@ function TranscriptContent() {
   const currentVideoUrl = storeVideoUrl || videoUrl || '';
 
   useEffect(() => {
-    // If no transcript data and we have a URL, the user might have navigated directly
-    // In this case, redirect back to home to extract transcript
-    if (videoUrl && transcript.length === 0 && !isLoading && !error) {
+    // Load history item if ID provided
+    if (historyId) {
+      // Clear existing data to show loading state and prevent stale content
+      setTranscript([]);
+      setVideoUrl('');
+      setThumbnail(null);
+      setSummary('');
+      setError(null);
+
+      const fetchHistory = async () => { 
+        try {
+          setIsLoading(true);
+          const response = await fetch(`/api/history?id=${historyId}`);
+          if (!response.ok) throw new Error('Failed to load history');
+          const data = await response.json();
+          
+          if (data.success && data.history) {
+            const h = data.history;
+            setVideoUrl(h.video_url);
+            
+            try {
+              const parsedTranscript = JSON.parse(h.transcript);
+              
+              // Transform transcript if it lacks timestamp strings (e.g. from raw Supadata response)
+              const formattedTranscript = parsedTranscript.map((item: any) => ({
+                ...item,
+                timestamp: item.timestamp || (item.offset !== undefined ? `${Math.floor(item.offset / 1000)}s` : undefined)
+              }));
+              
+              setTranscript(formattedTranscript);
+            } catch {
+              // Fallback for plain text transcript (legacy/migration)
+              setTranscript([{ text: h.transcript, timestamp: undefined }]);
+            }
+            
+            if (h.summary) setSummary(h.summary);
+            
+            if (h.thumbnail_url) {
+              const detectedPlatform = generateThumbnailFromUrl(h.video_url)?.platform || 'unknown';
+              setThumbnail({
+                url: h.thumbnail_url,
+                videoId: 'unknown', 
+                platform: detectedPlatform
+              });
+            } else {
+              // Try to generate thumbnail from URL if not saved
+              const generatedThumb = generateThumbnailFromUrl(h.video_url);
+              if (generatedThumb) {
+                setThumbnail(generatedThumb);
+              }
+            }
+          }
+        } catch (err) {
+          setError('Failed to load history item');
+          console.error(err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchHistory();
+    }
+  }, [historyId, setTranscript, setSummary, setVideoUrl, setThumbnail, setError, setIsLoading]);
+
+  useEffect(() => {
+    // Only redirect if we have a URL but no transcript and NOT loading history
+    if (videoUrl && transcript.length === 0 && !isLoading && !error && !historyId) {
       // Optional: You could implement direct API call here instead of redirecting
       logger.debug('No transcript data found, user should extract transcript first', undefined, 'TranscriptPage');
     }
-  }, [videoUrl, transcript, isLoading, error]);
+  }, [videoUrl, transcript, isLoading, error, historyId]);
 
   // Delayed feedback prompt after successful transcript load
   useEffect(() => {
@@ -114,6 +187,7 @@ function TranscriptContent() {
         body: JSON.stringify({
           transcript: transcriptText,
           language: getLanguageName(selectedLanguage),
+          videoUrl: currentVideoUrl,
         }),
       });
 
@@ -148,6 +222,36 @@ function TranscriptContent() {
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
+  const handleSaveToHistory = async () => {
+    try {
+      const historyItem = {
+        video_url: currentVideoUrl,
+        transcript: JSON.stringify(transcript),
+        summary: summary || undefined,
+        thumbnail_url: typeof thumbnail === 'string' ? thumbnail : undefined,
+        created_at: new Date().toISOString()
+      };
+      
+      localStorage.setItem('pending_history', JSON.stringify(historyItem));
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/v1/callback?next=/history`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      logger.error('Failed to initiate save to history login', err, 'TranscriptPage');
+      setError('Failed to initiate login. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
       {/* Header */}
@@ -168,6 +272,19 @@ function TranscriptContent() {
                   </p>
                 </div>
               </Link>
+            </div>
+            <div className="flex items-center space-x-3">
+              {user && searchParams.get('from') === 'history' ? (
+                <Link
+                  href="/history"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-all duration-200"
+                >
+                  <ArrowLeft className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-700 hidden sm:inline">Back to History</span>
+                </Link>
+              ) : (
+                <HistoryButton />
+              )}
             </div>
             {/* <div className="flex items-center space-x-4">
               <Link href="/" className="flex items-center text-slate-600 hover:text-slate-800 transition-colors text-sm">
@@ -193,18 +310,16 @@ function TranscriptContent() {
               </div>
 
               {/* Video Thumbnail */}
-              {thumbnail && currentVideoUrl && (
+              {currentVideoUrl ? (
                 <div className="mb-4">
                   <VideoThumbnail
-                    thumbnail={thumbnail}
+                    thumbnail={thumbnail || generateThumbnailFromUrl(currentVideoUrl) || { url: '', videoId: 'unknown', platform: 'unknown' }}
                     videoUrl={currentVideoUrl}
-                    className="w-full"
+                    className="w-full h-48 sm:h-64"
                   />
                 </div>
-              )}
-
-              {/* Fallback when no thumbnail */}
-              {(!thumbnail || !currentVideoUrl) && (
+              ) : (
+                /* Fallback when no video URL */
                 <div className="bg-slate-100 rounded-lg p-4 mb-4">
                   <div className="aspect-video bg-slate-200 rounded-lg flex items-center justify-center">
                     <div className="text-center">
@@ -239,6 +354,17 @@ function TranscriptContent() {
                 </button>
               </div>
 
+              {/* Save to History Button (Anonymous only) */}
+              {!user && transcript.length > 0 && (
+                <button
+                  onClick={handleSaveToHistory}
+                  className="w-full mb-4 bg-green-600 hover:bg-green-700 text-white px-3 py-2.5 sm:py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2 text-sm sm:text-base"
+                >
+                  <Save className="h-4 w-4" />
+                  Save to History
+                </button>
+              )}
+
               {/* Transcript Content */}
               <div className="bg-slate-50 rounded-lg p-3 sm:p-4 flex-1 overflow-y-auto">
                 {isLoading ? (
@@ -255,13 +381,13 @@ function TranscriptContent() {
                   showTimestamps ? (
                     <div className="space-y-3">
                       {transcript.map((line, index) => (
-                        <div key={index} className="flex flex-col sm:flex-row sm:items-start space-y-2 sm:space-y-0 sm:space-x-3">
+                        <div key={index} className="flex flex-row items-start space-x-3">
                           {line.timestamp && (
-                            <span className="font-medium text-blue-600 text-xs sm:text-sm px-2 py-1 bg-blue-50 rounded self-start sm:min-w-[60px] text-center">
+                            <span className="shrink-0 font-medium text-blue-600 text-xs sm:text-sm px-2 py-1 bg-blue-50 rounded min-w-[50px] sm:min-w-[60px] text-center">
                               {line.timestamp}
                             </span>
                           )}
-                          <p className="text-slate-700 leading-relaxed flex-1 text-sm sm:text-base">{line.text}</p>
+                          <p className="text-slate-700 leading-relaxed flex-1 text-sm sm:text-base pt-0.5">{line.text}</p>
                         </div>
                       ))}
                     </div>

@@ -83,10 +83,7 @@ export default function Home() {
           />
 
           <VideoUrlInput usageInfo={usageInfo} />
-
-          {/* <TranscriptDisplay /> */}
-
-          {/* <SummarySection /> */}
+          
         </div>
       </main>
 
