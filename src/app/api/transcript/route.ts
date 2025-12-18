@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyCaptchaToken } from '@/utils/captcha';
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest } from '@/lib/usageTracking';
 import { logger } from '@/utils/logger';
 
@@ -286,6 +288,39 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
 
         logger.info('Transcript success', { ip: clientIP, url, durationSeconds: durationInSeconds }, 'TranscriptAPI');
         
+        // Save to history if authenticated
+        if (userId) {
+          try {
+            
+            // Store full content as JSON string to preserve timestamps
+            const fullTranscript = JSON.stringify(data.content);
+            const title = data.title || null;
+          
+            let thumbnail = null;
+
+              // If Supadata didn't return a thumbnail, try to generate one locally
+              const generatedThumb = generateThumbnailFromUrl(url);
+              if (generatedThumb) {
+                thumbnail = generatedThumb.url;
+              }
+            
+            
+            // Always create a new history entry for each run
+            await supabaseAdmin
+              .from('user_history')
+              .insert({
+                user_id: userId,
+                video_url: url,
+                title: title,
+                thumbnail_url: thumbnail,
+                transcript: fullTranscript
+              });
+          } catch (historyError) {
+            logger.error('Failed to save history', historyError, 'TranscriptAPI');
+            // Don't fail the request if history save fails
+          }
+        }
+
         return NextResponse.json({
           success: true,
           transcript: data.content.map((item: SupadataTranscriptItem) => ({

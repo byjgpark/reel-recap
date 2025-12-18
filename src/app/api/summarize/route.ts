@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase} from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 interface SummarizeRequest {
   transcript: string;
   language: string;
+  videoUrl?: string;
 }
 
 interface SummarizeResponse {
@@ -59,29 +61,29 @@ const getLanguagePrompt = (language: string): string => {
 };
 
 // Helper function to get user from session
-// async function getCurrentUser(request: NextRequest) {
-//   try {
-//     const authHeader = request.headers.get('authorization');
-//     if (!authHeader?.startsWith('Bearer ')) {
-//       return null;
-//     }
-//
-//     const token = authHeader.substring(7);
-//     const { data: { user }, error } = await supabase.auth.getUser(token);
-//    
-//     if (error || !user) {
-//       return null;
-//     }
-//    
-//     return user;
-//   } catch {
-//     return null;
-//   }
-// }
+async function getCurrentUser(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return null;
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+   
+    if (error || !user) {
+      return null;
+    }
+   
+    return user;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse<SummarizeResponse>> {
   try {
-    const { transcript, language = 'English' }: SummarizeRequest = await request.json();
+    const { transcript, language = 'English', videoUrl }: SummarizeRequest = await request.json();
     
     // Extract client IP for usage tracking
     // Summary requests are free: do not count or gate by usage limits
@@ -168,6 +170,47 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
         { success: false, error: 'Empty summary generated' },
         { status: 500 }
       );
+    }
+
+    // Save summary to history if authenticated
+    const user = await getCurrentUser(request);
+    if (user && videoUrl) {
+      try {
+        // Find latest record for this video to attach summary to
+        // Since we now append history on transcript, we want the most recent one
+        const { data: latestHistory } = await supabaseAdmin
+          .from('user_history')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('video_url', videoUrl)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (latestHistory && latestHistory.length > 0) {
+          await supabaseAdmin
+            .from('user_history')
+            .update({
+              summary: summary,
+              language: language,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', latestHistory[0].id);
+        } else {
+          // Fallback: create new record if somehow no history exists
+          await supabaseAdmin
+            .from('user_history')
+            .insert({
+              user_id: user.id,
+              video_url: videoUrl,
+              transcript: transcript,
+              summary: summary,
+              language: language,
+              title: 'Untitled Video',
+            });
+        }
+      } catch (historyError) {
+        console.error('Failed to save summary to history:', historyError);
+      }
     }
 
     // Return summary without modifying usage counts

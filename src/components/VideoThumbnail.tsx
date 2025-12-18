@@ -15,18 +15,19 @@ interface VideoThumbnailProps {
 
 export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount }: VideoThumbnailProps) {
   const [imageError, setImageError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!thumbnail.url);
 
   const handleImageError = () => {
     setImageError(true);
     setIsLoading(false);
     
     // For YouTube, try fallback thumbnail
-    if (thumbnail.platform === 'youtube' && !thumbnail.url.includes('hqdefault')) {
+    if (thumbnail.platform === 'youtube' && thumbnail.url && !thumbnail.url.includes('hqdefault')) {
       const fallbackUrl = getYouTubeFallbackThumbnail(thumbnail.videoId);
       // Update the thumbnail URL to fallback
       thumbnail.url = fallbackUrl;
       setImageError(false);
+      setIsLoading(true); // Retry loading
     }
   };
 
@@ -43,6 +44,7 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
       case 'youtube': return 'YouTube';
       case 'tiktok': return 'TikTok';
       case 'instagram': return 'Instagram';
+      case 'facebook': return 'Facebook';
       case 'twitter': return 'Twitter/X';
       default: return 'Video';
     }
@@ -53,6 +55,7 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
       case 'youtube': return 'bg-red-500';
       case 'tiktok': return 'bg-black';
       case 'instagram': return 'bg-gradient-to-r from-purple-500 to-pink-500';
+      case 'facebook': return 'bg-blue-600';
       case 'twitter': return 'bg-blue-500';
       default: return 'bg-gray-500';
     }
@@ -66,7 +69,7 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
 
   return (
     <div className={`relative group cursor-pointer ${className}`} onClick={handleThumbnailClick}>
-      <div className="relative overflow-hidden rounded-lg border-2 border-slate-200 hover:border-blue-400 transition-all duration-300 shadow-md hover:shadow-lg">
+      <div className="relative overflow-hidden rounded-lg border-2 border-slate-200 hover:border-blue-400 transition-all duration-300 shadow-md hover:shadow-lg h-full">
         {/* Loading State */}
         {isLoading && (
           <div className="absolute inset-0 bg-slate-100 animate-pulse flex items-center justify-center">
@@ -75,11 +78,11 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
         )}
         
         {/* Thumbnail Image */}
-        {!imageError ? (
+        {thumbnail.url && !imageError ? (
           <Image
             src={thumbnail.url}
             alt={`${getPlatformName(thumbnail.platform)} video thumbnail`}
-            className="w-full h-40 sm:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             width={400}
             height={192}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -88,10 +91,10 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
           />
         ) : (
           /* Fallback for non-YouTube or failed thumbnails */
-          <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+          <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
             <div className="text-center">
-              <ImageIcon className="h-12 w-12 text-slate-400 mx-auto mb-2" />
-              <p className="text-sm text-slate-600">{getPlatformName(thumbnail.platform)} Video</p>
+              <ImageIcon className="h-8 w-8 sm:h-12 sm:w-12 text-slate-400 mx-auto mb-2" />
+              <p className="text-xs sm:text-sm text-slate-600">{getPlatformName(thumbnail.platform)} Video</p>
             </div>
           </div>
         )}
@@ -130,18 +133,11 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
         </div>
         
         {/* External Link Icon */}
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="bg-white bg-opacity-90 rounded-full p-1">
+        <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+          <div className="bg-white bg-opacity-90 rounded-full p-1 shadow-sm">
             <ExternalLink className="h-4 w-4 text-slate-600" />
           </div>
         </div>
-      </div>
-      
-      {/* Click to view hint */}
-      <div className="mt-2 text-center">
-        <p className="text-xs text-slate-500 group-hover:text-blue-600 transition-colors duration-200">
-          Click to view original video
-        </p>
       </div>
     </div>
   );

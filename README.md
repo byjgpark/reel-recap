@@ -4,8 +4,10 @@ A modern web application that extracts transcripts from YouTube, TikTok, Instagr
 
 ## ✨ Features
 
-- **Multi-Platform Support**: Extract transcripts from YouTube, TikTok, Instagram, and Twitter/X videos
+- **Multi-Platform Support**: Extract transcripts from YouTube, TikTok, Instagram, Facebook, and Twitter/X videos
 - **AI Summarization**: Generate intelligent summaries using DeepSeek AI
+- **Smart History**: Save and manage your video history with search and advanced filtering
+- **Date Tracking**: Clear distinction between creation and modification dates for transcripts
 - **Multi-Language Support**: Summaries available in 10+ languages (English, Spanish, French, German, Italian, Portuguese, Russian, Japanese, Korean, Chinese)
 - **Dark/Light Mode**: Beautiful responsive design with theme switching
 - **Copy Functionality**: Easy copy-to-clipboard for transcripts and summaries
@@ -15,6 +17,7 @@ A modern web application that extracts transcripts from YouTube, TikTok, Instagr
 ## 🚀 Tech Stack
 
 - **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
+- **Backend**: Supabase (Database & Auth)
 - **State Management**: Zustand
 - **UI Components**: Lucide React icons
 - **Theme**: next-themes for dark/light mode
@@ -74,15 +77,18 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── transcript/route.ts    # Transcript extraction API
-│   │   └── summarize/route.ts     # AI summarization API
+│   │   ├── summarize/route.ts     # AI summarization API
+│   │   └── history/route.ts       # History management API
+│   ├── history/                   # History page
+│   ├── transcript/                # Transcript display page
 │   ├── layout.tsx                 # Root layout with theme provider
 │   └── page.tsx                   # Main application page
 ├── components/
 │   ├── VideoUrlInput.tsx          # URL input and validation
-│   ├── TranscriptDisplay.tsx      # Transcript display component
 │   ├── SummarySection.tsx         # Summary generation and display
-│   ├── ThemeProvider.tsx          # Theme context provider
-│   └── ThemeToggle.tsx            # Dark/light mode toggle
+│   ├── HistoryButton.tsx          # History navigation button
+│   ├── VideoThumbnail.tsx         # Smart video thumbnail component
+│   └── ThemeProvider.tsx          # Theme context provider
 └── store/
     └── useStore.ts                # Zustand state management
 ```
