@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Copy, AlertCircle, Sparkles, Globe, History, Save, ArrowLeft } from 'lucide-react';
+import { Copy, AlertCircle, Sparkles, Globe, Save, ArrowLeft } from 'lucide-react';
 import { HistoryButton } from '@/components/HistoryButton';
 import { VideoThumbnail } from '@/components/VideoThumbnail';
 import { useStore } from '@/store/useStore';
@@ -96,7 +96,7 @@ function TranscriptContent() {
               const parsedTranscript = JSON.parse(h.transcript);
               
               // Transform transcript if it lacks timestamp strings (e.g. from raw Supadata response)
-              const formattedTranscript = parsedTranscript.map((item: any) => ({
+              const formattedTranscript = parsedTranscript.map((item: { text: string; offset?: number; timestamp?: string }) => ({
                 ...item,
                 timestamp: item.timestamp || (item.offset !== undefined ? `${Math.floor(item.offset / 1000)}s` : undefined)
               }));
