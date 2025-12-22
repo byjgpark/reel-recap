@@ -102,7 +102,7 @@ export function BulkExtractionPanel() {
         }
 
         // Calculate duration
-        const totalDuration = data.transcript.reduce((max: number, t: any) => {
+        const totalDuration = data.transcript.reduce((max: number, t: TranscriptItem) => {
             const endTime = (t.offset || 0) + (t.duration || 0);
             return Math.max(max, endTime);
         }, 0);
@@ -112,7 +112,7 @@ export function BulkExtractionPanel() {
           ...item,
           status: 'completed',
           transcriptLength: data.transcript.length,
-          duration: durationInSeconds,
+          duration: item.duration,
           transcript: data.transcript
         };
 

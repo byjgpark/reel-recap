@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, AlertCircle, Layers, Video, Sparkles, X } from 'lucide-react';
+import { Play, AlertCircle, Layers, Video } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { trackEvent } from '@/utils/mixpanel';

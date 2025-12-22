@@ -94,9 +94,9 @@ export function BulkTranscriptView() {
 
       const data = await response.json();
       updateBulkItem(item.id, { summary: data.summary, isGeneratingSummary: false });
-    } catch (err) {
+    } catch {
       updateBulkItem(item.id, { 
-        error: 'Failed to generate summary', 
+        error: 'Failed to generate summary',  
         isGeneratingSummary: false 
       });
     }
