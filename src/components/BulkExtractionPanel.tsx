@@ -5,8 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
 import { trackEvent } from '@/utils/mixpanel';
 import { getApiHeaders } from '@/utils/auth';
-import { AlertCircle, CheckCircle, Clock, Loader2, Play, XCircle, FileText } from 'lucide-react';
+import { CheckCircle, Clock, Loader2, Play, XCircle, FileText } from 'lucide-react';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
+
+interface TranscriptItem {
+  text: string;
+  offset: number;
+  duration: number;
+}
 
 interface BulkItem {
   id: string;
@@ -15,7 +21,13 @@ interface BulkItem {
   error?: string;
   transcriptLength?: number;
   duration?: number;
-  transcript?: any[];
+  transcript?: TranscriptItem[];
+}
+
+declare global {
+  interface Window {
+    refreshUsageData?: () => void;
+  }
 }
 
 export function BulkExtractionPanel() {
@@ -113,11 +125,11 @@ export function BulkExtractionPanel() {
             setUsageLogId(data.usageLogId);
         }
 
-      } catch (error: any) {
+      } catch (error) {
         const failedItem: BulkItem = {
           ...item,
           status: 'failed',
-          error: error.message || 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error'
         };
         resultsMap.set(item.id, failedItem);
         setItems(prev => prev.map(p => p.id === item.id ? failedItem : p));
@@ -127,15 +139,15 @@ export function BulkExtractionPanel() {
     setIsProcessing(false);
     
     // Refresh usage stats
-    if (typeof window !== 'undefined' && (window as any).refreshUsageData) {
-        (window as any).refreshUsageData();
+    if (typeof window !== 'undefined' && window.refreshUsageData) {
+        window.refreshUsageData();
     }
 
     // Prepare data for store and redirect
     const finalBulkItems = Array.from(resultsMap.values()).map(item => ({
       id: item.id,
       url: item.url,
-      transcript: item.transcript ? item.transcript.map((t: any) => ({
+      transcript: item.transcript ? item.transcript.map((t: TranscriptItem) => ({
         text: t.text,
         timestamp: t.offset !== undefined ? `${Math.floor(t.offset / 1000)}s` : undefined
       })) : [],
