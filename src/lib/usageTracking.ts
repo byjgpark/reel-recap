@@ -16,9 +16,7 @@ export interface UsageTrackingOptions {
 }
 
 // Constants
-const ANONYMOUS_LIMIT = 1;
-const AUTHENTICATED_DAILY_LIMIT = 2; // Adjusted limits to control costs
-const RESET_INTERVAL_HOURS = 24;
+import { ANONYMOUS_LIMIT, AUTHENTICATED_DAILY_LIMIT, RESET_INTERVAL_HOURS } from './constants';
 
 // Check if user can make a request
 export async function checkUsageLimit(

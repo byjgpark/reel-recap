@@ -8,6 +8,7 @@ import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { trackEvent } from '@/utils/mixpanel';
 import { TurnstileWidget } from './TurnstileWidget';
 import { getApiHeaders } from '@/utils/auth';
+import { BulkExtractionPanel } from './BulkExtractionPanel';
 
 // Add interface for window object with refreshUsageData
 interface WindowWithRefresh extends Window {
@@ -58,7 +59,6 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [showVerification, setShowVerification] = useState(false);
   const [extractionMode, setExtractionMode] = useState<'single' | 'bulk'>('single');
-  const [showBulkModal, setShowBulkModal] = useState(false);
   
   const { 
     setVideoUrl, 
@@ -271,189 +271,143 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
       } catch (error) {
         console.error('Failed to track click:', error);
       }
-      
-      // Show coming soon modal
-      setShowBulkModal(true);
-      return;
     }
     setExtractionMode(mode);
   };
 
   return (
     <div className="bright-card p-6 relative">
-      {/* Bulk Extractor Coming Soon Modal */}
-      {showBulkModal && (
-        <div 
-          className="absolute inset-0 z-20 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center p-6 animate-in fade-in duration-200"
-          onClick={() => setShowBulkModal(false)}
-        >
-          <div 
-            className="bg-white border border-purple-100 shadow-xl rounded-xl p-6 max-w-sm w-full text-center relative"
-            onClick={e => e.stopPropagation()}
-          >
-            <button 
-              onClick={() => setShowBulkModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Layers className="w-8 h-8 text-purple-600" />
-            </div>
-            
-            <h3 className="text-xl font-bold text-slate-800 mb-2">
-              Bulk Extraction Coming Soon! 🚀
-            </h3>
-            
-            <p className="text-slate-600 mb-6">
-              Process multiple videos at once to save time. We&apos;re working hard to bring this feature to you.
-            </p>
-            
-            <div className="bg-purple-50 rounded-lg p-3 border border-purple-100 mb-4">
-              <p className="text-sm text-purple-700 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Thanks for your interest!
-              </p>
-            </div>
-            
-            <button
-              onClick={() => setShowBulkModal(false)}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 rounded-lg transition-colors"
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col space-y-6">
-        {/* Mode Toggle */}
-        <div className="flex p-1.5 bg-slate-100 rounded-xl w-full">
-          <button
-            type="button"
-            onClick={() => handleModeChange('single')}
-            className={`flex-1 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 py-3 sm:py-3.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
-              extractionMode === 'single'
-                ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Video className="w-4 h-4 sm:w-4 sm:h-4" />
-            <span>Single Video</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleModeChange('bulk')}
-            className={`flex-1 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 py-3 sm:py-3.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
-              extractionMode === 'bulk'
-                ? 'bg-white text-purple-600 shadow-sm ring-1 ring-black/5'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <div className="flex items-center">
-              <Layers className="w-4 h-4 sm:w-4 sm:h-4" />
-            </div>
-            <div className="flex flex-col sm:flex-row items-center sm:space-x-2">
-              <span>Bulk Extraction</span>
-              <span className="mt-0.5 sm:mt-0 ml-0 sm:ml-1.5 text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">New</span>
-            </div>
-          </button>
-        </div>
-
-        <h2 className="text-2xl font-semibold text-center text-slate-800">
-          Enter Video URL
-        </h2>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="video-url" className="block text-sm font-medium text-slate-700 mb-2">
-            Video URL
-          </label>
-          <div className="relative group">
-            <input
-              id="video-url"
-              type="url"
-              value={inputUrl}
-              onChange={handleInputChange}
-              placeholder="Paste YouTube Shorts, TikTok, Instagram Reel, or Facebook URL here..."
-              className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-              disabled={isLoading}
-            />
-            <Play className="absolute right-4 top-1/2 transform -translate-y-1/2 h-6 w-6 text-slate-400 transition-all duration-300 group-hover:scale-110" />
-          </div>
-          {validationError && (
-            <div className="mt-2 flex items-center text-sm text-red-600">
-              <AlertCircle className="h-4 w-4 mr-1" />
-              {validationError}
-            </div>
-          )}
-        </div>
-        
-        {/* Verification Widget */}
-        {showVerification && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="mb-3">
-              <h3 className="text-sm font-medium text-blue-800 mb-1">
-                Verification Required
-              </h3>
-              <p className="text-sm text-blue-700">
-                Please complete the verification below to continue.
-              </p>
-            </div>
-            <TurnstileWidget 
-              onVerify={handleVerificationComplete}
-              onError={handleVerificationError}
-              onExpire={handleVerificationExpire}
-              className=""
-            />
-          </div>
-        )}
-        
-        {/* Usage limit warning */}
-        {usageInfo && usageInfo.remainingRequests === 0 && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800 mb-1">
-                  Request Limit Reached
-                </h3>
-                <p className="text-sm text-red-700">
-                  {usageInfo.isAuthenticated 
-                    ? "You've reached your daily limit. Please try again tomorrow."
-                    : "You've reached your daily limit. Please try again tomorrow."
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
+      {/* Mode Toggle */}
+      <div className="flex p-1.5 bg-slate-100 rounded-xl w-full mb-6">
         <button
-          type="submit"
-          disabled={isLoading || !inputUrl.trim() || (usageInfo?.remainingRequests === 0)}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          type="button"
+          onClick={() => handleModeChange('single')}
+          className={`flex-1 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 py-3 sm:py-3.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
+            extractionMode === 'single'
+              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
         >
-          {isLoading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-              <span>Processing...</span>
-            </div>
-          ) : usageInfo?.remainingRequests === 0 ? (
-            "Limit Reached"
-          ) : (
-            "Extract Transcript"
-          )}
+          <Video className="w-4 h-4 sm:w-4 sm:h-4" />
+          <span>Single Video</span>
         </button>
-      </form>
-      
-      <div className="mt-4 text-xs text-slate-600 text-center">
-        Supported platforms: <span className="text-blue-600 font-medium">YouTube Shorts</span>, <span className="text-blue-600 font-medium">TikTok</span>, <span className="text-blue-600 font-medium">Instagram Reels</span>, <span className="text-blue-600 font-medium">Facebook (Reels/Watch/Share)</span>
-        <br />
-        <span className="text-amber-600 font-medium">⏱ Videos must be 3 minutes or less</span>
+        <button
+          type="button"
+          onClick={() => handleModeChange('bulk')}
+          className={`flex-1 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 py-3 sm:py-3.5 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
+            extractionMode === 'bulk'
+              ? 'bg-white text-purple-600 shadow-sm ring-1 ring-black/5'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <div className="flex items-center">
+            <Layers className="w-4 h-4 sm:w-4 sm:h-4" />
+          </div>
+          <div className="flex flex-col sm:flex-row items-center sm:space-x-2">
+            <span>Bulk Extraction</span>
+            <span className="mt-0.5 sm:mt-0 ml-0 sm:ml-1.5 text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">New</span>
+          </div>
+        </button>
       </div>
+
+      {extractionMode === 'bulk' ? (
+        <BulkExtractionPanel />
+      ) : (
+        <>
+          <h2 className="text-2xl font-semibold text-center text-slate-800 mb-6">
+            Enter Video URL
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="video-url" className="block text-sm font-medium text-slate-700 mb-2">
+                Video URL
+              </label>
+              <div className="relative group">
+                <input
+                  id="video-url"
+                  type="url"
+                  value={inputUrl}
+                  onChange={handleInputChange}
+                  placeholder="Paste YouTube Shorts, TikTok, Instagram Reel, or Facebook URL here..."
+                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  disabled={isLoading}
+                />
+                <Play className="absolute right-4 top-1/2 transform -translate-y-1/2 h-6 w-6 text-slate-400 transition-all duration-300 group-hover:scale-110" />
+              </div>
+              {validationError && (
+                <div className="mt-2 flex items-center text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {validationError}
+                </div>
+              )}
+            </div>
+            
+            {/* Verification Widget */}
+            {showVerification && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mb-3">
+                  <h3 className="text-sm font-medium text-blue-800 mb-1">
+                    Verification Required
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    Please complete the verification below to continue.
+                  </p>
+                </div>
+                <TurnstileWidget 
+                  onVerify={handleVerificationComplete}
+                  onError={handleVerificationError}
+                  onExpire={handleVerificationExpire}
+                  className=""
+                />
+              </div>
+            )}
+            
+            {/* Usage limit warning */}
+            {usageInfo && usageInfo.remainingRequests === 0 && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800 mb-1">
+                      Request Limit Reached
+                    </h3>
+                    <p className="text-sm text-red-700">
+                      {usageInfo.isAuthenticated 
+                        ? "You've reached your daily limit. Please try again tomorrow."
+                        : "You've reached your daily limit. Please try again tomorrow."
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading || !inputUrl.trim() || (usageInfo?.remainingRequests === 0)}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <span>Processing...</span>
+                </div>
+              ) : usageInfo?.remainingRequests === 0 ? (
+                "Limit Reached"
+              ) : (
+                "Extract Transcript"
+              )}
+            </button>
+          </form>
+          
+          <div className="mt-4 text-xs text-slate-600 text-center">
+            Supported platforms: <span className="text-blue-600 font-medium">YouTube Shorts</span>, <span className="text-blue-600 font-medium">TikTok</span>, <span className="text-blue-600 font-medium">Instagram Reels</span>, <span className="text-blue-600 font-medium">Facebook (Reels/Watch/Share)</span>
+            <br />
+            <span className="text-amber-600 font-medium">⏱ Videos must be 3 minutes or less</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
