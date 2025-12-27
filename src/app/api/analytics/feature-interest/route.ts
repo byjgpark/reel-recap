@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createClient } from '@/utils/supabase/server';
+import { isAdmin } from '@/lib/adminAuth';
 
 interface ClickData {
   id: string;
@@ -10,17 +11,6 @@ interface ClickData {
   timestamp: string;
   user_agent: string;
   ip_address: string;
-}
-
-interface AdminUser {
-  id: string;
-  email?: string | null;
-}
-
-// Helper function to check if user is admin
-function isAdmin(user: AdminUser | null): boolean {
-  const email = user?.email ?? null;
-  return email === 'byjpark21@gmail.com';
 }
 
 export async function GET(request: NextRequest) {
