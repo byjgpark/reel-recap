@@ -42,7 +42,26 @@ interface AppState {
   setUsageLogId: (id: string | null) => void;
   setFeedbackPromptOpen: (open: boolean) => void;
   setFeedbackPromptShown: (shown: boolean) => void;
+  
+  // Bulk actions
+  bulkItems: BulkTranscriptItem[];
+  setBulkItems: (items: BulkTranscriptItem[]) => void;
+  updateBulkItem: (id: string, updates: Partial<BulkTranscriptItem>) => void;
+  
   clearData: () => void;
+}
+
+export interface BulkTranscriptItem {
+  id: string;
+  url: string;
+  transcript: TranscriptLine[];
+  summary?: string;
+  thumbnail?: VideoThumbnail | null;
+  duration?: number;
+  error?: string;
+  isLoading?: boolean;
+  isGeneratingSummary?: boolean;
+  selectedLanguage?: string;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -60,6 +79,8 @@ export const useStore = create<AppState>((set) => ({
   feedbackPromptOpen: false,
   feedbackPromptShown: false,
   
+  bulkItems: [],
+  
   // Actions
   setVideoUrl: (url) => set({ videoUrl: url, error: null }),
   setTranscript: (transcript) => set({ transcript }),
@@ -73,6 +94,14 @@ export const useStore = create<AppState>((set) => ({
   setUsageLogId: (id) => set({ usageLogId: id }),
   setFeedbackPromptOpen: (open) => set({ feedbackPromptOpen: open }),
   setFeedbackPromptShown: (shown) => set({ feedbackPromptShown: shown }),
+  
+  setBulkItems: (items) => set({ bulkItems: items }),
+  updateBulkItem: (id, updates) => set((state) => ({
+    bulkItems: state.bulkItems.map((item) => 
+      item.id === id ? { ...item, ...updates } : item
+    )
+  })),
+  
   clearData: () => set({ 
     transcript: [], 
     summary: '', 
@@ -82,7 +111,8 @@ export const useStore = create<AppState>((set) => ({
     feedbackPromptShown: false,
     error: null,
     isLoading: false,
-    isGeneratingSummary: false
+    isGeneratingSummary: false,
+    bulkItems: [] 
   }),
 }));
 

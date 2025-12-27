@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getUserUsageStats, getUsageStatsForDisplay } from '@/lib/usageTracking';
-
-// Import the same constants used in usageTracking
-const ANONYMOUS_LIMIT = 1;
-const AUTHENTICATED_DAILY_LIMIT = 2;
+import { ANONYMOUS_LIMIT, AUTHENTICATED_DAILY_LIMIT } from '@/lib/constants';
 
 interface UsageStatsResponse {
   success: boolean;

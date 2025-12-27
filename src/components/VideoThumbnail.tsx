@@ -36,7 +36,16 @@ export function VideoThumbnail({ thumbnail, videoUrl, className = '', wordCount 
   };
 
   const handleThumbnailClick = () => {
-    window.open(videoUrl, '_blank', 'noopener,noreferrer');
+    try {
+      // Security fix: XSS prevention
+      // Only allow http and https protocols to prevent javascript: execution
+      const url = new URL(videoUrl);
+      if (['http:', 'https:'].includes(url.protocol)) {
+        window.open(videoUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (e) {
+      console.error('Invalid video URL:', e);
+    }
   };
 
   const getPlatformName = (platform: string): string => {

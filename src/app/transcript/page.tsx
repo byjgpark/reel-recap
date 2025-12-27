@@ -13,6 +13,7 @@ import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { FeedbackModal } from '@/components/FeedbackModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { BulkTranscriptView } from '@/components/BulkTranscriptView';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -37,6 +38,7 @@ const getLanguageName = (code: string): string => {
 
 function TranscriptContent() {
   const searchParams = useSearchParams();
+  const isBulkView = searchParams.get('view') === 'bulk';
   const { user } = useAuth();
   const videoUrl = searchParams.get('url');
   const historyId = searchParams.get('id');
@@ -298,7 +300,10 @@ function TranscriptContent() {
       </header>
 
       <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 w-full">
-        <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 lg:gap-8">
+        {isBulkView ? (
+          <BulkTranscriptView />
+        ) : (
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Transcript Section */}
           <div className="space-y-6 order-1 lg:order-1">
             <div className="bright-card p-4 sm:p-6 min-h-[400px] max-h-[80vh] lg:h-[600px] flex flex-col">
@@ -485,7 +490,8 @@ function TranscriptContent() {
               )}
             </div>
           </div>
-        </div>
+          </div>
+        )}
       </main>
       {/* Feedback Modal */}
       <FeedbackModal
