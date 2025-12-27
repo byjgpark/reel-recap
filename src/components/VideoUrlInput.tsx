@@ -311,7 +311,17 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
       </div>
 
       {extractionMode === 'bulk' ? (
-        <BulkExtractionPanel />
+        // <BulkExtractionPanel />
+        <div className="text-center py-12 px-4">
+          <div className="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Layers className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-800 mb-2">Bulk Extraction Coming Soon</h3>
+          <p className="text-slate-600 max-w-md mx-auto">
+            We're building a tool to help you extract transcripts from multiple videos at once. 
+            Check back soon!
+          </p>
+        </div>
       ) : (
         <>
           <h2 className="text-2xl font-semibold text-center text-slate-800 mb-6">
