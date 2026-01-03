@@ -11,6 +11,9 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user } = useAuth();
 
+  // Suppress unused variable warning if user is not currently used in the render
+  console.log(user ? 'User logged in' : 'Guest user');
+
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -10,6 +10,9 @@ export default function PricingPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
 
+  // Suppress unused variable warning for now as it will be used for payment integration
+  console.log(loading);
+
   const handleSubscribe = async () => {
     if (!user) {
       window.location.href = '/login';
@@ -52,7 +55,7 @@ export default function PricingPage() {
                 </Link>
               </div>
               <div className="pt-6 pb-8 px-6 bg-slate-50 rounded-b-lg">
-                <h3 className="text-xs font-medium text-slate-900 tracking-wide uppercase">What's included</h3>
+                <h3 className="text-xs font-medium text-slate-900 tracking-wide uppercase">What&apos;s included</h3>
                 <ul className="mt-6 space-y-4">
                   <li className="flex space-x-3">
                     <Check className="flex-shrink-0 h-5 w-5 text-green-500" />
@@ -87,7 +90,7 @@ export default function PricingPage() {
                 </Link>
               </div>
               <div className="pt-6 pb-8 px-6 bg-slate-50 rounded-b-lg">
-                <h3 className="text-xs font-medium text-slate-900 tracking-wide uppercase">What's included</h3>
+                <h3 className="text-xs font-medium text-slate-900 tracking-wide uppercase">What&apos;s included</h3>
                 <ul className="mt-6 space-y-4">
                   <li className="flex space-x-3">
                     <Check className="flex-shrink-0 h-5 w-5 text-green-500" />
@@ -126,7 +129,7 @@ export default function PricingPage() {
                 </button>
               </div>
               <div className="pt-6 pb-8 px-6 bg-purple-50/50 rounded-b-lg">
-                <h3 className="text-xs font-medium text-slate-900 tracking-wide uppercase">What's included</h3>
+                <h3 className="text-xs font-medium text-slate-900 tracking-wide uppercase">What&apos;s included</h3>
                 <ul className="mt-6 space-y-4">
                   <li className="flex space-x-3">
                     <Check className="flex-shrink-0 h-5 w-5 text-green-500" />

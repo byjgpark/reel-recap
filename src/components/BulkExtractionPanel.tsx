@@ -106,7 +106,8 @@ export function BulkExtractionPanel() {
             const endTime = (t.offset || 0) + (t.duration || 0);
             return Math.max(max, endTime);
         }, 0);
-        const durationInSeconds = Math.floor(totalDuration / 1000);
+        // Duration variable kept for future use
+        // const durationInSeconds = Math.floor(totalDuration / 1000);
 
         const updatedItem: BulkItem = {
           ...item,
