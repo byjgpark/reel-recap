@@ -15,6 +15,9 @@ export function Footer() {
                     </div>
 
                     <div className="flex space-x-6">
+                        <Link href="/pricing" className="text-sm text-slate-600 hover:text-blue-600 transition-colors">
+                            Pricing
+                        </Link>
                         <Link href="/about" className="text-sm text-slate-600 hover:text-blue-600 transition-colors">
                             About
                         </Link>
@@ -26,6 +29,9 @@ export function Footer() {
                         </Link>
                         <Link href="/terms" className="text-sm text-slate-600 hover:text-blue-600 transition-colors">
                             Terms of Service
+                        </Link>
+                        <Link href="/refund-policy" className="text-sm text-slate-600 hover:text-blue-600 transition-colors">
+                            Refund Policy
                         </Link>
                     </div>
                 </div>
