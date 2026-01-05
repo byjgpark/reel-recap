@@ -1,9 +1,14 @@
+'use client';
+
 import React from 'react';
+import { Header } from '@/components/Header';
 
 export default function TermsOfService() {
     return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow">
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+            <Header />
+            <div className="py-12 px-4 sm:px-6 lg:px-8 flex-grow">
+                <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow">
                 <h1 className="text-3xl font-bold text-slate-900 mb-6">Terms of Service</h1>
                 <div className="prose prose-slate max-w-none text-slate-700">
                     <p className="mb-4">Last updated: {new Date().toLocaleDateString()}</p>
@@ -39,6 +44,7 @@ export default function TermsOfService() {
                     <p className="mb-4">
                         The materials appearing on Reel Recap&apos;s website could include technical, typographical, or photographic errors. Reel Recap does not warrant that any of the materials on its website are accurate, complete or current. Reel Recap may make changes to the materials contained on its website at any time without notice. However Reel Recap does not make any commitment to update the materials.
                     </p>
+                </div>
                 </div>
             </div>
         </div>

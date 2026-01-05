@@ -115,7 +115,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       );
     }
 
-    // Validate the URL BEFORE any usage checking
+    // Validate the URL
     const validation = validateVideoUrl(url);
     if (!validation.isValid) {
       return NextResponse.json(
@@ -124,67 +124,82 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       );
     }
 
-    // For anonymous users, check if verification is needed BEFORE processing
-    if (!userId) {
-      const usageCheck = await checkUsageLimit(userId, clientIP);
-      
-      if (!usageCheck.allowed) {
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: usageCheck.message,
-            requiresVerification: usageCheck.requiresAuth,
+    // 1. Check Cache for Authenticated Users FIRST
+    if (userId) {
+      const { data: cachedHistory } = await supabaseAdmin
+        .from('user_history')
+        .select('transcript, title')
+        .eq('user_id', userId)
+        .eq('video_url', url)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (cachedHistory?.transcript) {
+        try {
+          const transcriptData = typeof cachedHistory.transcript === 'string' 
+            ? JSON.parse(cachedHistory.transcript) 
+            : cachedHistory.transcript;
+
+          logger.info('Serving cached transcript', { userId, url }, 'TranscriptAPI');
+          
+          return NextResponse.json({
+            success: true,
+            transcript: transcriptData,
             usageInfo: {
-              remainingRequests: usageCheck.remainingRequests,
-              isAuthenticated: usageCheck.isAuthenticated,
-              requiresAuth: usageCheck.requiresAuth,
-              message: usageCheck.message
+              remainingRequests: -1, // undefined for cache hits
+              isAuthenticated: true,
+              requiresAuth: false,
+              message: 'Loaded from history'
             }
-          },
-          { status: 429 }
-        );
-      }
-      
-      // Check if verification is required for anonymous users near limit
-      // const needsVerification = usageCheck.remainingRequests <= 1;
-      
-      // if (needsVerification && !captchaToken) {
-      //   logger.warn('Verification required', { ip: clientIP }, 'TranscriptAPI');
-      //   return NextResponse.json(
-      //     { 
-      //       success: false, 
-      //       error: `Please complete verification to continue.`,
-      //       requiresVerification: true,
-      //       usageInfo: {
-      //         remainingRequests: usageCheck.remainingRequests,
-      //         isAuthenticated: usageCheck.isAuthenticated,
-      //         requiresAuth: usageCheck.requiresAuth,
-      //         message: usageCheck.message
-      //       }
-      //     },
-      //     { status: 429 }
-      //   );
-      // }
-      
-      // Verify CAPTCHA token if provided
-      if (captchaToken) {
-        const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
-        if (!captchaResult.success) {
-          logger.warn('Verification failed', { ip: clientIP }, 'TranscriptAPI');
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: captchaResult.error || 'Verification failed' 
-            },
-            { status: 400 }
-          );
+          });
+        } catch (e) {
+          logger.error('Failed to parse cached transcript', e, 'TranscriptAPI');
+          // Fall through to fresh fetch if cache is corrupted
         }
-        logger.info('Verification successful', { ip: clientIP }, 'TranscriptAPI');
       }
     }
 
+    // 2. Reserve Usage Slot (Atomic Increment) BEFORE External Call
+    // This prevents parallel request attacks and ensures strict limits
+    let atomicResult;
+    
+    if (userId) {
+      atomicResult = await processAtomicAuthenticatedRequest(
+        userId,
+        'transcript',
+        url,
+        clientIP
+      );
+    } else {
+      // Anonymous flow
+      if (captchaToken) {
+        atomicResult = await processCaptchaVerifiedRequest(clientIP, 'transcript', url);
+      } else {
+        atomicResult = await processAtomicAnonymousRequest(clientIP, 'transcript', url);
+      }
+    }
+
+    // If reservation failed (limit reached), block immediately
+    if (!atomicResult.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: atomicResult.message,
+          requiresVerification: !userId, // Trigger captcha flow if anon
+          usageInfo: {
+            remainingRequests: atomicResult.remainingRequests,
+            isAuthenticated: !!userId,
+            requiresAuth: !userId,
+            message: atomicResult.message
+          }
+        },
+        { status: 429 }
+      );
+    }
+
+    // 3. Proceed to External API Call (Supadata)
     try {
-        // Fetch transcript using Supadata API BEFORE any usage counting
         const supadataApiKey = process.env.SUPADATA_API_KEY;
 
         if (!supadataApiKey) {
@@ -239,52 +254,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         }
 
         // ONLY increment usage count AFTER successful transcript extraction
-        let atomicResult;
+        // Note: We already reserved the slot above.
+        // If we implemented a "refund" mechanism, we would call it here on failure.
+        // For now, we accept that failed API calls might still consume a daily quota slot
+        // to prevent abuse (repeatedly calling with bad videos).
         
-        if (userId) {
-          // Authenticated user - use atomic processing
-          atomicResult = await processAtomicAuthenticatedRequest(
-            userId,
-            'transcript',
-            url,
-            clientIP
-          );
-        } else {
-          // Anonymous user - process based on verification status
-          if (captchaToken) {
-            // Use CAPTCHA-verified processing for verified requests
-            atomicResult = await processCaptchaVerifiedRequest(
-              clientIP,
-              'transcript',
-              url
-            );
-          } else {
-            // Process normal anonymous request atomically
-            atomicResult = await processAtomicAnonymousRequest(
-              clientIP,
-              'transcript',
-              url
-            );
-          }
-        }
-
-        // Check if usage processing failed
-        if (!atomicResult.success) {
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: atomicResult.message,
-              requiresVerification: !userId,
-              usageInfo: {
-                remainingRequests: atomicResult.remainingRequests,
-                isAuthenticated: !!userId,
-                requiresAuth: !userId,
-                message: atomicResult.message
-              }
-            },
-            { status: 429 }
-          );
-        }
+        /* 
+           Refactored: Usage is already incremented/reserved at the start.
+           The block below is removed to prevent double-counting.
+        */
 
         logger.info('Transcript success', { ip: clientIP, url, durationSeconds: durationInSeconds }, 'TranscriptAPI');
         

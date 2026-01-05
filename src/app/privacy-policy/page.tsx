@@ -1,9 +1,14 @@
+'use client';
+
 import React from 'react';
+import { Header } from '@/components/Header';
 
 export default function PrivacyPolicy() {
     return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow">
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+            <Header />
+            <div className="py-12 px-4 sm:px-6 lg:px-8 flex-grow">
+                <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow">
                 <h1 className="text-3xl font-bold text-slate-900 mb-6">Privacy Policy</h1>
                 <div className="prose prose-slate max-w-none text-slate-700">
                     <p className="mb-4">Last updated: {new Date().toLocaleDateString()}</p>
@@ -47,6 +52,7 @@ export default function PrivacyPolicy() {
                     </p>
                 </div>
             </div>
+        </div>
         </div>
     );
 }
