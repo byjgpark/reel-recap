@@ -330,6 +330,15 @@ async function getAnonymousUserStatsForDisplay(ipAddress: string): Promise<Usage
 
 // Get authenticated user stats for display
 async function getAuthenticatedUserStatsForDisplay(userId: string): Promise<UsageCheckResult> {
+  // Temporary override: Display 2/2 used for all auth
+  return {
+    allowed: false,
+    remainingRequests: 0,
+    isAuthenticated: true,
+    requiresAuth: false,
+    message: '2/2 used'
+  };
+
   const { data: usage } = await supabaseAdmin
     .from('user_usage')
     .select('*')
