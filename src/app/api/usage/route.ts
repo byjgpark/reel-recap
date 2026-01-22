@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { getUserUsageStats, getUsageStatsForDisplay } from '@/lib/usageTracking';
+import { getUsageStatsForDisplay } from '@/lib/usageTracking';
 import { ANONYMOUS_LIMIT, AUTHENTICATED_DAILY_LIMIT } from '@/lib/constants';
 
 interface UsageStatsResponse {
@@ -57,14 +57,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<UsageStats
     const isAuthenticated = !!userId;
     const dailyLimit = isAuthenticated ? AUTHENTICATED_DAILY_LIMIT : ANONYMOUS_LIMIT;
     
-    if (isAuthenticated && userId) {
-      // Get detailed stats for authenticated users
-      const userStats = await getUserUsageStats(userId);
-      totalRequests = userStats.totalUsage;
-    } else {
-      // For anonymous users, calculate from remaining requests
-      totalRequests = dailyLimit - usageCheck.remainingRequests;
-    }
+    // Calculate totalRequests from remainingRequests to ensure consistency with IP-based limits
+    // This ensures that if multiple users share an IP, the "used" count reflects the shared limit usage
+    totalRequests = Math.max(0, dailyLimit - usageCheck.remainingRequests);
     
     return NextResponse.json({
       success: true,

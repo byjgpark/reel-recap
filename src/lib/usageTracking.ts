@@ -267,7 +267,7 @@ export async function getUsageStatsForDisplay(
   ipAddress: string
 ): Promise<UsageCheckResult> {
   if (userId) {
-    return await getAuthenticatedUserStatsForDisplay(userId);
+    return await getAuthenticatedUserStatsForDisplay(userId, ipAddress);
   } else {
     return await getAnonymousUserStatsForDisplay(ipAddress);
   }
@@ -329,51 +329,45 @@ async function getAnonymousUserStatsForDisplay(ipAddress: string): Promise<Usage
 }
 
 // Get authenticated user stats for display
-async function getAuthenticatedUserStatsForDisplay(userId: string): Promise<UsageCheckResult> {
-  // Temporary override: Display 2/2 used for all auth
-  // return {
-  //   allowed: false,
-  //   remainingRequests: 0,
-  //   isAuthenticated: true,
-  //   requiresAuth: false,
-  //   message: '2/2 used'
-  // };
-
-  const { data: usage } = await supabaseAdmin
-    .from('user_usage')
+async function getAuthenticatedUserStatsForDisplay(userId: string, ipAddress: string): Promise<UsageCheckResult> {
+  // Check IP usage first as it is the primary limiter now
+  const { data: ipUsage } = await supabaseAdmin
+    .from('ip_usage')
     .select('*')
-    .eq('user_id', userId)
+    .eq('ip_address', ipAddress)
     .single();
 
-  if (!usage) {
-    return {
-      allowed: true,
-      remainingRequests: AUTHENTICATED_DAILY_LIMIT,
-      isAuthenticated: true,
-      requiresAuth: false,
-      message: `${AUTHENTICATED_DAILY_LIMIT} requests remaining today`
-    };
+  // Also check user_usage for historical reasons/display consistency if needed, 
+  // but the limit is strictly IP based.
+  
+  if (!ipUsage) {
+     // No usage record for this IP yet.
+     return {
+       allowed: true,
+       remainingRequests: AUTHENTICATED_DAILY_LIMIT,
+       isAuthenticated: true,
+       requiresAuth: false,
+       message: `${AUTHENTICATED_DAILY_LIMIT} requests remaining today`
+     };
   }
 
-  // Check if we need to reset (24 hours passed)
-  const lastReset = new Date(usage.last_reset);
+  // Check reset
+  const lastReset = new Date(ipUsage.last_reset);
   const now = new Date();
   const hoursSinceLastReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
-
+  
   if (hoursSinceLastReset >= RESET_INTERVAL_HOURS) {
-    return {
-      allowed: true,
-      remainingRequests: AUTHENTICATED_DAILY_LIMIT,
-      isAuthenticated: true,
-      requiresAuth: false,
-      message: `Daily limit reset! ${AUTHENTICATED_DAILY_LIMIT} requests remaining`
-    };
+     return {
+       allowed: true,
+       remainingRequests: AUTHENTICATED_DAILY_LIMIT,
+       isAuthenticated: true,
+       requiresAuth: false,
+       message: `Daily limit reset! ${AUTHENTICATED_DAILY_LIMIT} requests remaining`
+     };
   }
-
-  // Calculate total usage from transcript_count + summary_count
-  const totalUsage = (usage.transcript_count || 0) + (usage.summary_count || 0);
-  const remainingRequests = AUTHENTICATED_DAILY_LIMIT - totalUsage;
-
+  
+  const remainingRequests = AUTHENTICATED_DAILY_LIMIT - ipUsage.request_count;
+  
   if (remainingRequests <= 0) {
     return {
       allowed: false,
