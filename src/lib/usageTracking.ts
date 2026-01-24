@@ -18,6 +18,12 @@ export interface UsageTrackingOptions {
 // Constants
 import { ANONYMOUS_LIMIT, AUTHENTICATED_DAILY_LIMIT, RESET_INTERVAL_HOURS } from './constants';
 
+// Sanitize IP address to match the SQL RPC functions
+// This ensures consistency between TypeScript queries and SQL storage
+function sanitizeIpAddress(ip: string): string {
+  return (!ip || ip === 'unknown') ? '0.0.0.0' : ip;
+}
+
 // Check if user can make a request
 export async function checkUsageLimit(
   userId: string | null,
@@ -267,7 +273,8 @@ export async function getUsageStatsForDisplay(
   ipAddress: string
 ): Promise<UsageCheckResult> {
   if (userId) {
-    return await getAuthenticatedUserStatsForDisplay(userId, ipAddress);
+    // For authenticated users, now use IP-based tracking
+    return await getAuthenticatedUserStatsForDisplay(ipAddress);
   } else {
     return await getAnonymousUserStatsForDisplay(ipAddress);
   }
@@ -275,10 +282,11 @@ export async function getUsageStatsForDisplay(
 
 // Get anonymous user stats for display
 async function getAnonymousUserStatsForDisplay(ipAddress: string): Promise<UsageCheckResult> {
+  const safeIp = sanitizeIpAddress(ipAddress);
   const { data: usage } = await supabaseAdmin
     .from('anonymous_usage')
     .select('*')
-    .eq('ip_address', ipAddress)
+    .eq('ip_address', safeIp)
     .single();
 
   if (!usage) {
@@ -328,13 +336,13 @@ async function getAnonymousUserStatsForDisplay(ipAddress: string): Promise<Usage
   };
 }
 
-// Get authenticated user stats for display
-async function getAuthenticatedUserStatsForDisplay(userId: string, ipAddress: string): Promise<UsageCheckResult> {
-  // Check IP usage first as it is the primary limiter now
+// Get authenticated user stats for display (now IP-based)
+async function getAuthenticatedUserStatsForDisplay(ipAddress: string): Promise<UsageCheckResult> {
+  const safeIp = sanitizeIpAddress(ipAddress);
   const { data: ipUsage } = await supabaseAdmin
     .from('ip_usage')
     .select('*')
-    .eq('ip_address', ipAddress)
+    .eq('ip_address', safeIp)
     .single();
 
   // Also check user_usage for historical reasons/display consistency if needed, 
@@ -365,9 +373,10 @@ async function getAuthenticatedUserStatsForDisplay(userId: string, ipAddress: st
        message: `Daily limit reset! ${AUTHENTICATED_DAILY_LIMIT} requests remaining`
      };
   }
-  
-  const remainingRequests = AUTHENTICATED_DAILY_LIMIT - ipUsage.request_count;
-  
+
+  // Calculate remaining requests from request_count
+  const remainingRequests = AUTHENTICATED_DAILY_LIMIT - (ipUsage.request_count || 0);
+
   if (remainingRequests <= 0) {
     return {
       allowed: false,
@@ -592,9 +601,10 @@ export async function checkUsageLimitOnly(
 ): Promise<AtomicRequestResult> {
   try {
     if (userId) {
-      // Check authenticated user limits
+      // Check authenticated user limits (now IP-based)
       const { data, error } = await supabaseAdmin.rpc('check_authenticated_usage_limit', {
         p_user_id: userId,
+        p_ip_address: ipAddress,
         p_daily_limit: AUTHENTICATED_DAILY_LIMIT,
         p_reset_interval_hours: RESET_INTERVAL_HOURS
       });
