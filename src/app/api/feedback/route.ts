@@ -21,6 +21,28 @@ interface FeedbackQuery {
   orderDirection?: 'ASC' | 'DESC';
 }
 
+// Allowlist of valid columns for ORDER BY to prevent SQL injection
+const VALID_ORDER_BY_COLUMNS = ['id', 'created_at', 'updated_at', 'rating', 'category', 'status', 'title'] as const;
+const VALID_ORDER_DIRECTIONS = ['ASC', 'DESC'] as const;
+
+type ValidOrderByColumn = typeof VALID_ORDER_BY_COLUMNS[number];
+type ValidOrderDirection = typeof VALID_ORDER_DIRECTIONS[number];
+
+function sanitizeOrderBy(value: string | null): ValidOrderByColumn {
+  if (value && VALID_ORDER_BY_COLUMNS.includes(value as ValidOrderByColumn)) {
+    return value as ValidOrderByColumn;
+  }
+  return 'created_at';
+}
+
+function sanitizeOrderDirection(value: string | null): ValidOrderDirection {
+  const upper = value?.toUpperCase();
+  if (upper && VALID_ORDER_DIRECTIONS.includes(upper as ValidOrderDirection)) {
+    return upper as ValidOrderDirection;
+  }
+  return 'DESC';
+}
+
 // Helper function to get user from session
 async function getCurrentUser(request: NextRequest) {
   try {
@@ -131,15 +153,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const user = await getCurrentUser(request);
 
-    // Parse query parameters
+    // Parse query parameters with validation to prevent SQL injection
     const query: FeedbackQuery = {
       category: searchParams.get('category') || undefined,
       status: searchParams.get('status') || undefined,
       rating: searchParams.get('rating') ? parseInt(searchParams.get('rating')!) : undefined,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20,
-      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0,
-      orderBy: searchParams.get('orderBy') || 'created_at',
-      orderDirection: (searchParams.get('orderDirection') as 'ASC' | 'DESC') || 'DESC'
+      limit: searchParams.get('limit') ? Math.min(Math.max(parseInt(searchParams.get('limit')!) || 20, 1), 100) : 20,
+      offset: searchParams.get('offset') ? Math.max(parseInt(searchParams.get('offset')!) || 0, 0) : 0,
+      orderBy: sanitizeOrderBy(searchParams.get('orderBy')),
+      orderDirection: sanitizeOrderDirection(searchParams.get('orderDirection'))
     };
 
     // For non-admin users, only show their own feedback
