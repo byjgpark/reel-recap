@@ -3,7 +3,7 @@ import { verifyCaptchaToken } from '@/utils/captcha';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
-import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest } from '@/lib/usageTracking';
+import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest, refundUsage } from '@/lib/usageTracking';
 import { logger } from '@/utils/logger';
 
 interface TranscriptItem {
@@ -219,6 +219,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           logger.warn('Supadata API call failed', { ip: clientIP, url, status: response.status }, 'TranscriptAPI');
+          // Refund usage since API call failed
+          await refundUsage(userId, clientIP, 'transcript');
           return NextResponse.json(
             { success: false, error: errorData.message || `Failed to fetch transcript (Status: ${response.status})` },
             { status: response.status }
@@ -228,6 +230,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         const data = await response.json();
         
         if (!data.content || data.content.length === 0) {
+          // Refund usage since no transcript was found
+          await refundUsage(userId, clientIP, 'transcript');
           return NextResponse.json(
             { success: false, error: 'No transcript available for this video' },
             { status: 404 }
@@ -244,10 +248,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         const MAX_DURATION_SECONDS = 180; // 3 minutes
 
         if (durationInSeconds > MAX_DURATION_SECONDS) {
+          // Refund usage since video is too long
+          await refundUsage(userId, clientIP, 'transcript');
           return NextResponse.json(
-            { 
-              success: false, 
-              error: `Video duration (${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}) exceeds the 3-minute limit. Please use a shorter video.` 
+            {
+              success: false,
+              error: `Video duration (${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}) exceeds the 3-minute limit. Please use a shorter video.`
             },
             { status: 400 }
           );
@@ -318,7 +324,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         });
     } catch (transcriptError: unknown) {
       logger.error('Transcript extraction error', transcriptError, 'TranscriptAPI');
-      
+      // Refund usage since extraction failed
+      await refundUsage(userId, clientIP, 'transcript');
       return NextResponse.json(
         { success: false, error: 'Failed to extract transcript. Please try again.' },
         { status: 500 }

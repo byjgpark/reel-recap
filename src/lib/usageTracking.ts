@@ -745,3 +745,65 @@ export async function incrementUsageAfterSuccess(
     };
   }
 }
+
+// Refund usage when API call fails
+export async function refundUsage(
+  userId: string | null,
+  ipAddress: string,
+  action: 'transcript' | 'summary'
+): Promise<{ success: boolean; remainingRequests: number; message: string }> {
+  try {
+    if (userId) {
+      // Refund authenticated user usage
+      const { data, error } = await supabaseAdmin.rpc('refund_authenticated_usage', {
+        p_user_id: userId,
+        p_ip_address: ipAddress,
+        p_action: action
+      });
+
+      if (error) {
+        console.error('Refund authenticated usage error:', error);
+        return {
+          success: false,
+          remainingRequests: 0,
+          message: 'Refund failed'
+        };
+      }
+
+      const result = data[0];
+      return {
+        success: result.success,
+        remainingRequests: result.remaining_requests,
+        message: result.message
+      };
+    } else {
+      // Refund anonymous user usage
+      const { data, error } = await supabaseAdmin.rpc('refund_anonymous_usage', {
+        p_ip_address: ipAddress
+      });
+
+      if (error) {
+        console.error('Refund anonymous usage error:', error);
+        return {
+          success: false,
+          remainingRequests: 0,
+          message: 'Refund failed'
+        };
+      }
+
+      const result = data[0];
+      return {
+        success: result.success,
+        remainingRequests: result.remaining_requests,
+        message: result.message
+      };
+    }
+  } catch (error) {
+    console.error('Refund usage error:', error);
+    return {
+      success: false,
+      remainingRequests: 0,
+      message: 'Refund failed'
+    };
+  }
+}
