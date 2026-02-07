@@ -3,8 +3,9 @@ import { verifyCaptchaToken } from '@/utils/captcha';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
-import { checkUsageLimit, processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest, refundUsage } from '@/lib/usageTracking';
+import { processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest } from '@/lib/usageTracking';
 import { logger } from '@/utils/logger';
+import { getClientIP } from '@/utils/ip';
 
 interface TranscriptItem {
   text: string;
@@ -97,10 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     const { url, captchaToken } = await request.json();
     
     // Extract client IP for usage tracking
-    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                    request.headers.get('x-real-ip') || 
-                    request.headers.get('cf-connecting-ip') || 
-                    'unknown';
+    const clientIP = getClientIP(request);
     
     // Get current user from session
     const user = await getCurrentUser(request);
@@ -174,6 +172,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     } else {
       // Anonymous flow
       if (captchaToken) {
+        // Verify CAPTCHA token server-side before processing
+        const captchaResult = await verifyCaptchaToken(captchaToken, clientIP);
+        if (!captchaResult.success) {
+          return NextResponse.json(
+            { success: false, error: 'CAPTCHA verification failed. Please try again.' },
+            { status: 400 }
+          );
+        }
         atomicResult = await processCaptchaVerifiedRequest(clientIP, 'transcript', url);
       } else {
         atomicResult = await processAtomicAnonymousRequest(clientIP, 'transcript', url);
@@ -219,8 +225,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           logger.warn('Supadata API call failed', { ip: clientIP, url, status: response.status }, 'TranscriptAPI');
-          // Refund usage since API call failed
-          await refundUsage(userId, clientIP, 'transcript');
           return NextResponse.json(
             { success: false, error: errorData.message || `Failed to fetch transcript (Status: ${response.status})` },
             { status: response.status }
@@ -230,8 +234,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         const data = await response.json();
         
         if (!data.content || data.content.length === 0) {
-          // Refund usage since no transcript was found
-          await refundUsage(userId, clientIP, 'transcript');
           return NextResponse.json(
             { success: false, error: 'No transcript available for this video' },
             { status: 404 }
@@ -248,8 +250,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         const MAX_DURATION_SECONDS = 180; // 3 minutes
 
         if (durationInSeconds > MAX_DURATION_SECONDS) {
-          // Refund usage since video is too long
-          await refundUsage(userId, clientIP, 'transcript');
           return NextResponse.json(
             {
               success: false,
@@ -324,8 +324,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         });
     } catch (transcriptError: unknown) {
       logger.error('Transcript extraction error', transcriptError, 'TranscriptAPI');
-      // Refund usage since extraction failed
-      await refundUsage(userId, clientIP, 'transcript');
       return NextResponse.json(
         { success: false, error: 'Failed to extract transcript. Please try again.' },
         { status: 500 }
