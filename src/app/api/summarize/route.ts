@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase} from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getClientIP } from '@/utils/ip';
+
+// In-memory per-IP rate limiter for summarize endpoint
+const summarizeRateLimits = new Map<string, { count: number; resetAt: number }>();
+const SUMMARIZE_RATE_LIMIT = 10; // max 10 summaries per IP per hour
+const SUMMARIZE_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 interface SummarizeRequest {
   transcript: string;
@@ -84,9 +90,24 @@ async function getCurrentUser(request: NextRequest) {
 export async function POST(request: NextRequest): Promise<NextResponse<SummarizeResponse>> {
   try {
     const { transcript, language = 'English', videoUrl }: SummarizeRequest = await request.json();
-    
-    // Extract client IP for usage tracking
-    // Summary requests are free: do not count or gate by usage limits
+
+    // Extract client IP for rate limiting
+    const clientIP = getClientIP(request);
+
+    // Per-IP rate limiting to prevent DeepSeek API abuse
+    const now = Date.now();
+    const rateEntry = summarizeRateLimits.get(clientIP);
+    if (rateEntry && now < rateEntry.resetAt) {
+      if (rateEntry.count >= SUMMARIZE_RATE_LIMIT) {
+        return NextResponse.json(
+          { success: false, error: 'Rate limit exceeded. Please try again later.' },
+          { status: 429 }
+        );
+      }
+      rateEntry.count++;
+    } else {
+      summarizeRateLimits.set(clientIP, { count: 1, resetAt: now + SUMMARIZE_RATE_WINDOW_MS });
+    }
 
     if (!transcript) {
       return NextResponse.json(
@@ -101,6 +122,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
         { status: 400 }
       );
     }
+
+    // Get user early (before expensive API call)
+    const user = await getCurrentUser(request);
 
     // Check for DeepSeek API key
     const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
@@ -173,7 +197,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Summarize
     }
 
     // Save summary to history if authenticated
-    const user = await getCurrentUser(request);
     if (user && videoUrl) {
       try {
         // Find latest record for this video to attach summary to

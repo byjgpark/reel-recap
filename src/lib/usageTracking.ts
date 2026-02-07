@@ -746,7 +746,11 @@ export async function incrementUsageAfterSuccess(
   }
 }
 
-// Refund usage when API call fails
+/**
+ * @deprecated DO NOT USE - This function was removed due to a security vulnerability.
+ * The refund loop allowed unlimited API calls by repeatedly triggering failures
+ * and getting quota restored. Quota now tracks API calls attempted, not successful deliveries.
+ */
 export async function refundUsage(
   userId: string | null,
   ipAddress: string,
