@@ -10,9 +10,9 @@ import { TurnstileWidget } from './TurnstileWidget';
 import { getApiHeaders } from '@/utils/auth';
 import { BulkExtractionPanel } from './BulkExtractionPanel';
 
-// Add interface for window object with refreshUsageData
+// Add interface for window object with refreshUsageDisplay
 interface WindowWithRefresh extends Window {
-  refreshUsageData?: () => void;
+  refreshUsageDisplay?: () => void;
 }
 
 interface UsageInfo {
@@ -199,9 +199,9 @@ export function VideoUrlInput({ usageInfo }: VideoUrlInputProps = {}) {
       // Refresh usage data after successful request
       if (typeof window !== 'undefined') {
         const windowWithRefresh = window as WindowWithRefresh;
-        if (windowWithRefresh.refreshUsageData) {
+        if (windowWithRefresh.refreshUsageDisplay) {
           try {
-            windowWithRefresh.refreshUsageData();
+            windowWithRefresh.refreshUsageDisplay();
           } catch (error) {
             console.warn('Failed to refresh usage data:', error);
           }

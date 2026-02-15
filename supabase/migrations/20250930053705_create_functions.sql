@@ -597,10 +597,10 @@ BEGIN
   
   -- Check if user has exceeded limit
   IF v_remaining <= 0 THEN
-    RETURN QUERY SELECT FALSE, 0, 'Daily limit reached. Please try again tomorrow!';
+    RETURN QUERY SELECT FALSE, 0, 'Daily limit reached. Please try again tomorrow!', NULL::UUID;
     RETURN;
   END IF;
-  
+
   -- Increment the appropriate counter
   IF p_action = 'transcript' THEN
     UPDATE user_usage
@@ -684,10 +684,10 @@ BEGIN
   
   -- Check if user has exceeded limit
   IF v_remaining <= 0 THEN
-    RETURN QUERY SELECT FALSE, 0, 'Free limit reached. Please sign in for more requests!';
+    RETURN QUERY SELECT FALSE, 0, 'Free limit reached. Please sign in for more requests!', NULL::UUID;
     RETURN;
   END IF;
-  
+
   -- Increment the counter
   UPDATE anonymous_usage
   SET request_count = request_count + 1,
