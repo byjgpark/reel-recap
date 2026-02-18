@@ -540,7 +540,7 @@ CREATE TRIGGER update_user_usage_updated_at
   BEFORE UPDATE ON public.user_usage
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- Function to atomically process authenticated user requests
+-- Function to atomically process authenticated user requests (IP-based enforcement)
 CREATE OR REPLACE FUNCTION process_authenticated_request(
   p_user_id UUID,
   p_action TEXT,
@@ -555,75 +555,61 @@ CREATE OR REPLACE FUNCTION process_authenticated_request(
   usage_log_id UUID
 ) AS $$
 DECLARE
-  v_usage_record user_usage%ROWTYPE;
-  v_total_usage INTEGER;
+  v_ip_record ip_usage%ROWTYPE;
   v_remaining INTEGER;
   v_hours_since_reset NUMERIC;
   v_now TIMESTAMP WITH TIME ZONE := NOW();
   v_usage_log_id UUID;
 BEGIN
-  -- Get or create user usage record with row-level locking
-  SELECT * INTO v_usage_record
-  FROM user_usage
-  WHERE user_id = p_user_id
+  -- Get or create IP usage record with row-level locking
+  SELECT * INTO v_ip_record
+  FROM ip_usage
+  WHERE ip_address = public.safe_ip_cast(p_ip_address)
   FOR UPDATE;
-  
+
   -- If no record exists, create one
   IF NOT FOUND THEN
-    INSERT INTO user_usage (user_id, transcript_count, summary_count, last_reset, created_at, updated_at)
-    VALUES (p_user_id, 0, 0, v_now, v_now, v_now)
-    RETURNING * INTO v_usage_record;
+    INSERT INTO ip_usage (ip_address, request_count, last_reset, created_at)
+    VALUES (public.safe_ip_cast(p_ip_address), 0, v_now, v_now)
+    RETURNING * INTO v_ip_record;
   END IF;
-  
+
   -- Check if reset is needed (24 hours passed)
-  v_hours_since_reset := EXTRACT(EPOCH FROM (v_now - v_usage_record.last_reset)) / 3600;
-  
+  v_hours_since_reset := EXTRACT(EPOCH FROM (v_now - v_ip_record.last_reset)) / 3600;
+
   IF v_hours_since_reset >= p_reset_interval_hours THEN
-    -- Reset counters
-    UPDATE user_usage
-    SET transcript_count = 0,
-        summary_count = 0,
-        last_reset = v_now,
-        updated_at = v_now
-    WHERE user_id = p_user_id;
-    
-    v_usage_record.transcript_count := 0;
-    v_usage_record.summary_count := 0;
+    -- Reset counter
+    UPDATE ip_usage
+    SET request_count = 0,
+        last_reset = v_now
+    WHERE ip_address = public.safe_ip_cast(p_ip_address);
+
+    v_ip_record.request_count := 0;
   END IF;
-  
-  -- Calculate current usage
-  v_total_usage := v_usage_record.transcript_count + v_usage_record.summary_count;
-  v_remaining := p_daily_limit - v_total_usage;
-  
-  -- Check if user has exceeded limit
+
+  -- Calculate remaining requests
+  v_remaining := p_daily_limit - v_ip_record.request_count;
+
+  -- Check if limit exceeded
   IF v_remaining <= 0 THEN
     RETURN QUERY SELECT FALSE, 0, 'Daily limit reached. Please try again tomorrow!', NULL::UUID;
     RETURN;
   END IF;
 
-  -- Increment the appropriate counter
-  IF p_action = 'transcript' THEN
-    UPDATE user_usage
-    SET transcript_count = transcript_count + 1,
-        updated_at = v_now
-    WHERE user_id = p_user_id;
-  ELSIF p_action = 'summary' THEN
-    UPDATE user_usage
-    SET summary_count = summary_count + 1,
-        updated_at = v_now
-    WHERE user_id = p_user_id;
-  END IF;
-  
-  
+  -- Increment request count
+  UPDATE ip_usage
+  SET request_count = request_count + 1
+  WHERE ip_address = public.safe_ip_cast(p_ip_address);
+
   -- Log the usage
   INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
   VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now)
   RETURNING id INTO v_usage_log_id;
-  
+
   -- Return success with updated remaining count
   v_remaining := v_remaining - 1;
-  RETURN QUERY SELECT TRUE, v_remaining, 
-    CASE 
+  RETURN QUERY SELECT TRUE, v_remaining,
+    CASE
       WHEN v_remaining = 0 THEN 'Request processed. Daily limit reached.'
       ELSE v_remaining || ' requests remaining today'
     END,
