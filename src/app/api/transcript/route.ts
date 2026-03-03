@@ -215,7 +215,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
           );
         }
 
-        const response = await fetch(`https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(url)}`, {
+        const response = await fetch(`https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(url)}&mode=generate`, {
           method: 'GET',
           headers: {
             'x-api-key': supadataApiKey
