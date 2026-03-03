@@ -21,11 +21,13 @@ CREATE INDEX IF NOT EXISTS idx_feature_interest_user_id ON public.feature_intere
 ALTER TABLE public.feature_interest_clicks ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Allow insert from authenticated and anonymous users (for tracking)
+DROP POLICY IF EXISTS "Allow insert for all users" ON public.feature_interest_clicks;
 CREATE POLICY "Allow insert for all users" ON public.feature_interest_clicks
   FOR INSERT
   WITH CHECK (true);
 
 -- Policy: Only allow select for service role (admin access via API)
+DROP POLICY IF EXISTS "Allow select for service role only" ON public.feature_interest_clicks;
 CREATE POLICY "Allow select for service role only" ON public.feature_interest_clicks
   FOR SELECT
   USING (auth.role() = 'service_role');

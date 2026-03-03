@@ -457,7 +457,8 @@ export async function processAtomicAuthenticatedRequest(
   userId: string,
   action: 'transcript' | 'summary',
   videoUrl: string,
-  ipAddress: string
+  ipAddress: string,
+  dailyLimit: number = AUTHENTICATED_DAILY_LIMIT
 ): Promise<AtomicRequestResult> {
   try {
     // Use a database transaction to atomically check and increment
@@ -466,7 +467,7 @@ export async function processAtomicAuthenticatedRequest(
       p_action: action,
       p_video_url: videoUrl,
       p_ip_address: ipAddress,
-      p_daily_limit: AUTHENTICATED_DAILY_LIMIT,
+      p_daily_limit: dailyLimit,
       p_reset_interval_hours: RESET_INTERVAL_HOURS
     });
 
@@ -597,7 +598,8 @@ export async function processCaptchaVerifiedRequest(
 // Check usage limits without incrementing count
 export async function checkUsageLimitOnly(
   userId: string | null,
-  ipAddress: string
+  ipAddress: string,
+  dailyLimit: number = AUTHENTICATED_DAILY_LIMIT
 ): Promise<AtomicRequestResult> {
   try {
     if (userId) {
@@ -605,7 +607,7 @@ export async function checkUsageLimitOnly(
       const { data, error } = await supabaseAdmin.rpc('check_authenticated_usage_limit', {
         p_user_id: userId,
         p_ip_address: ipAddress,
-        p_daily_limit: AUTHENTICATED_DAILY_LIMIT,
+        p_daily_limit: dailyLimit,
         p_reset_interval_hours: RESET_INTERVAL_HOURS
       });
 
@@ -671,7 +673,8 @@ export async function incrementUsageAfterSuccess(
   userId: string | null,
   ipAddress: string,
   action: 'transcript' | 'summary',
-  videoUrl: string
+  videoUrl: string,
+  dailyLimit: number = AUTHENTICATED_DAILY_LIMIT
 ): Promise<AtomicRequestResult> {
   try {
     if (userId) {
@@ -681,7 +684,7 @@ export async function incrementUsageAfterSuccess(
         p_action: action,
         p_video_url: videoUrl,
         p_ip_address: ipAddress,
-        p_daily_limit: AUTHENTICATED_DAILY_LIMIT,
+        p_daily_limit: dailyLimit,
         p_reset_interval_hours: RESET_INTERVAL_HOURS
       });
 

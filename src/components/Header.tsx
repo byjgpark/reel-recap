@@ -2,17 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { HistoryButton } from '@/components/HistoryButton';
 import { AuthButton } from '@/components/AuthButton';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, CreditCard } from 'lucide-react';
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
-
-  // Suppress unused variable warning if user is not currently used in the render
-  console.log(user ? 'User logged in' : 'Guest user');
+  const { isPro, isTrial } = useSubscription();
 
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-slate-200 shadow-sm">
@@ -36,18 +33,21 @@ export function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          {/* <nav className="hidden md:flex items-center space-x-6">
-            <Link href="/pricing" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">
-              Pricing
-            </Link>
-            <Link href="/about" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">
-              About
-            </Link>
-            <div className="flex items-center space-x-3 ml-4">
+          <nav className="hidden md:flex items-center space-x-4">
+            {(isPro || isTrial) && (
+              <Link
+                href="/billing"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-violet-600 text-white text-sm font-semibold shadow-md hover:shadow-lg hover:shadow-purple-300 hover:scale-105 transition-all duration-200"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Manage Billing
+              </Link>
+            )}
+            <div className="flex items-center space-x-3 ml-2">
               <HistoryButton />
               <AuthButton />
             </div>
-          </nav> */}
+          </nav>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center space-x-3">
@@ -70,21 +70,7 @@ export function Header() {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link
-              href="/pricing"
-              className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Pricing
-            </Link>
-            <Link
-              href="/about"
-              className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              About
-            </Link>
+          <div className="px-2 pt-2 pb-3 space-y-2 sm:px-3">
             <Link
               href="/contact"
               className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50"
@@ -92,6 +78,16 @@ export function Header() {
             >
               Contact
             </Link>
+            {(isPro || isTrial) && (
+              <Link
+                href="/billing"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-violet-600 text-white font-medium hover:shadow-md transition-all duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <CreditCard className="h-4 w-4" />
+                Manage Billing
+              </Link>
+            )}
             <div className="px-3 py-2">
               <AuthButton />
             </div>

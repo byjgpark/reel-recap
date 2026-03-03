@@ -5,8 +5,7 @@ import { VideoUrlInput } from '@/components/VideoUrlInput';
 import { UsageDisplay } from '@/components/UsageDisplay';
 import { useStore } from '@/store/useStore';
 import { AlertCircle } from 'lucide-react';
-import { AuthButton } from '@/components/AuthButton';
-import { HistoryButton } from '@/components/HistoryButton';
+import { Header } from '@/components/Header';
 import { FeedbackButton } from '@/components/FeedbackButton';
 
 interface UsageInfo {
@@ -24,30 +23,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white sticky top-0 z-50 border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">RR</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-800">
-                  Reel Recap
-                </h1>
-                <p className="text-xs text-slate-600">
-                  Video Transcript Extractor
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <HistoryButton />
-              <AuthButton />
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <main className="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 w-full">
