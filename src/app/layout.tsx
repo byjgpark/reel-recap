@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { Analytics } from '@vercel/analytics/react'
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { Footer } from "@/components/Footer";
@@ -36,12 +37,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
-          <ThemeProvider>
-            {children}
-            <Footer />
-            {/* Global Floating Feedback Button */}
-            <FeedbackButton />
-          </ThemeProvider>
+          <SubscriptionProvider>
+            <ThemeProvider>
+              {children}
+              <Footer />
+              {/* Global Floating Feedback Button */}
+              <FeedbackButton />
+            </ThemeProvider>
+          </SubscriptionProvider>
         </AuthProvider>
         <Analytics />
       </body>

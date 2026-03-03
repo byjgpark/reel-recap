@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
+import { getApiHeaders } from '@/utils/auth';
 
 export default function PricingPage() {
   const { user } = useAuth();
+  const { isPro, cancelAtPeriodEnd } = useSubscription();
   const [loading, setLoading] = useState(false);
-
-  // Suppress unused variable warning for now as it will be used for payment integration
-  console.log(loading);
 
   const handleSubscribe = async () => {
     if (!user) {
@@ -19,9 +19,31 @@ export default function PricingPage() {
       return;
     }
 
-    // Placeholder for Paddle integration
-    // TODO: Implement Paddle Checkout here
-    alert('Payment integration coming soon!');
+    setLoading(true);
+    try {
+      // Check if already subscribed
+      const headers = await getApiHeaders();
+      const res = await fetch('/api/subscription/status', { headers });
+      const data = await res.json();
+      if (data.isPro) {
+        window.location.href = '/api/portal/polar';
+        return;
+      }
+
+      // Build checkout URL with query params
+      const params = new URLSearchParams({
+        products: process.env.NEXT_PUBLIC_POLAR_PRODUCT_ID || '',
+        customerExternalId: user.id,
+        customerEmail: user.email || '',
+      });
+
+      window.location.href = `/api/checkout/polar?${params.toString()}`;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -111,7 +133,7 @@ export default function PricingPage() {
             {/* Pro Plan */}
             <div className="border border-purple-200 rounded-lg shadow-sm divide-y divide-slate-200 bg-white ring-2 ring-purple-500 flex flex-col relative">
               <div className="absolute top-0 right-0 -mr-1 -mt-1 w-32 rounded-bl-lg rounded-tr-lg bg-purple-600 px-3 py-1 text-xs font-medium text-white text-center">
-                Recommended
+                {isPro ? 'Current Plan' : 'Recommended'}
               </div>
               <div className="p-6 flex-1">
                 <h2 className="text-lg leading-6 font-medium text-slate-900">Pro</h2>
@@ -120,13 +142,28 @@ export default function PricingPage() {
                   <span className="text-4xl font-extrabold text-slate-900">$9.99</span>
                   <span className="text-base font-medium text-slate-500">/mo</span>
                 </p>
-                <button
-                  onClick={handleSubscribe}
-                  disabled={loading}
-                  className="mt-8 block w-full bg-purple-600 border border-transparent rounded-md py-2 text-sm font-semibold text-white text-center hover:bg-purple-700 disabled:opacity-50 transition-colors"
-                >
-                  {loading ? 'Loading...' : 'Subscribe to Pro'}
-                </button>
+                {isPro ? (
+                  cancelAtPeriodEnd ? (
+                    <p className="mt-8 text-center text-sm text-amber-600 font-medium">
+                      Cancels at period end
+                    </p>
+                  ) : (
+                    <Link
+                      href="/billing"
+                      className="mt-8 block w-full bg-slate-600 border border-transparent rounded-md py-2 text-sm font-semibold text-white text-center hover:bg-slate-700 transition-colors"
+                    >
+                      Manage Subscription
+                    </Link>
+                  )
+                ) : (
+                  <button
+                    onClick={handleSubscribe}
+                    disabled={loading}
+                    className="mt-8 block w-full bg-purple-600 border border-transparent rounded-md py-2 text-sm font-semibold text-white text-center hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                  >
+                    {loading ? 'Loading...' : 'Start 7-Day Free Trial'}
+                  </button>
+                )}
               </div>
               <div className="pt-6 pb-8 px-6 bg-purple-50/50 rounded-b-lg">
                 <h3 className="text-xs font-medium text-slate-900 tracking-wide uppercase">What&apos;s included</h3>

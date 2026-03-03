@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
 import { processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest } from '@/lib/usageTracking';
+import { getDailyLimitForUser } from '@/lib/subscription';
 import { logger } from '@/utils/logger';
 import { getClientIP } from '@/utils/ip';
 
@@ -163,11 +164,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
     let atomicResult;
     
     if (userId) {
+      const dailyLimit = await getDailyLimitForUser(userId);
       atomicResult = await processAtomicAuthenticatedRequest(
         userId,
         'transcript',
         url,
-        clientIP
+        clientIP,
+        dailyLimit
       );
     } else {
       // Anonymous flow

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getUsageStatsForDisplay } from '@/lib/usageTracking';
-import { ANONYMOUS_LIMIT, AUTHENTICATED_DAILY_LIMIT } from '@/lib/constants';
+import { ANONYMOUS_LIMIT } from '@/lib/constants';
+import { getDailyLimitForUser } from '@/lib/subscription';
 
 interface UsageStatsResponse {
   success: boolean;
@@ -55,7 +56,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<UsageStats
     // Calculate additional stats for authenticated users
     let totalRequests = 0;
     const isAuthenticated = !!userId;
-    const dailyLimit = isAuthenticated ? AUTHENTICATED_DAILY_LIMIT : ANONYMOUS_LIMIT;
+    const dailyLimit = isAuthenticated && userId
+      ? await getDailyLimitForUser(userId)
+      : ANONYMOUS_LIMIT;
     
     // Calculate totalRequests from remainingRequests to ensure consistency with IP-based limits
     // This ensures that if multiple users share an IP, the "used" count reflects the shared limit usage
