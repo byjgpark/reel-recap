@@ -50,19 +50,16 @@ export async function GET(request: NextRequest): Promise<NextResponse<UsageStats
     const user = await getCurrentUser(request);
     const userId = user?.id || null;
     
-    // Get usage statistics for display purposes
-    const usageCheck = await getUsageStatsForDisplay(userId, clientIP);
-    
-    // Calculate additional stats for authenticated users
-    let totalRequests = 0;
+    // Calculate daily limit first (subscription-aware)
     const isAuthenticated = !!userId;
     const dailyLimit = isAuthenticated && userId
       ? await getDailyLimitForUser(userId)
       : ANONYMOUS_LIMIT;
-    
-    // Calculate totalRequests from remainingRequests to ensure consistency with IP-based limits
-    // This ensures that if multiple users share an IP, the "used" count reflects the shared limit usage
-    totalRequests = Math.max(0, dailyLimit - usageCheck.remainingRequests);
+
+    // Pass dailyLimit so display stats use the correct limit (not hardcoded free-tier limit)
+    const usageCheck = await getUsageStatsForDisplay(userId, clientIP, dailyLimit);
+
+    const totalRequests = Math.max(0, dailyLimit - usageCheck.remainingRequests);
     
     return NextResponse.json({
       success: true,

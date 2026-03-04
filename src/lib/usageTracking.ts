@@ -270,11 +270,12 @@ async function updateAuthenticatedUserUsage(userId: string, action: 'transcript'
 // Get usage stats for display purposes (doesn't subtract 1 for upcoming request)
 export async function getUsageStatsForDisplay(
   userId: string | null,
-  ipAddress: string
+  ipAddress: string,
+  dailyLimit?: number
 ): Promise<UsageCheckResult> {
   if (userId) {
     // For authenticated users, now use IP-based tracking
-    return await getAuthenticatedUserStatsForDisplay(ipAddress);
+    return await getAuthenticatedUserStatsForDisplay(ipAddress, dailyLimit ?? AUTHENTICATED_DAILY_LIMIT);
   } else {
     return await getAnonymousUserStatsForDisplay(ipAddress);
   }
@@ -337,7 +338,7 @@ async function getAnonymousUserStatsForDisplay(ipAddress: string): Promise<Usage
 }
 
 // Get authenticated user stats for display (now IP-based)
-async function getAuthenticatedUserStatsForDisplay(ipAddress: string): Promise<UsageCheckResult> {
+async function getAuthenticatedUserStatsForDisplay(ipAddress: string, dailyLimit: number): Promise<UsageCheckResult> {
   const safeIp = sanitizeIpAddress(ipAddress);
   const { data: ipUsage } = await supabaseAdmin
     .from('ip_usage')
@@ -345,17 +346,13 @@ async function getAuthenticatedUserStatsForDisplay(ipAddress: string): Promise<U
     .eq('ip_address', safeIp)
     .single();
 
-  // Also check user_usage for historical reasons/display consistency if needed, 
-  // but the limit is strictly IP based.
-  
   if (!ipUsage) {
-     // No usage record for this IP yet.
      return {
        allowed: true,
-       remainingRequests: AUTHENTICATED_DAILY_LIMIT,
+       remainingRequests: dailyLimit,
        isAuthenticated: true,
        requiresAuth: false,
-       message: `${AUTHENTICATED_DAILY_LIMIT} requests remaining today`
+       message: `${dailyLimit} requests remaining today`
      };
   }
 
@@ -363,19 +360,19 @@ async function getAuthenticatedUserStatsForDisplay(ipAddress: string): Promise<U
   const lastReset = new Date(ipUsage.last_reset);
   const now = new Date();
   const hoursSinceLastReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
-  
+
   if (hoursSinceLastReset >= RESET_INTERVAL_HOURS) {
      return {
        allowed: true,
-       remainingRequests: AUTHENTICATED_DAILY_LIMIT,
+       remainingRequests: dailyLimit,
        isAuthenticated: true,
        requiresAuth: false,
-       message: `Daily limit reset! ${AUTHENTICATED_DAILY_LIMIT} requests remaining`
+       message: `Daily limit reset! ${dailyLimit} requests remaining`
      };
   }
 
   // Calculate remaining requests from request_count
-  const remainingRequests = AUTHENTICATED_DAILY_LIMIT - (ipUsage.request_count || 0);
+  const remainingRequests = dailyLimit - (ipUsage.request_count || 0);
 
   if (remainingRequests <= 0) {
     return {
