@@ -3,11 +3,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Trash2, ExternalLink, Calendar, FileText, Sparkles, Video } from 'lucide-react';
+import { ArrowLeft, Trash2, ExternalLink, Calendar, FileText, Sparkles, Video, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { AuthButton } from '@/components/AuthButton';
 import { VideoThumbnail } from '@/components/VideoThumbnail';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
+import { FREE_HISTORY_LIMIT } from '@/lib/constants';
 
 interface HistoryItem {
   id: string;
@@ -22,9 +24,11 @@ interface HistoryItem {
 export default function HistoryPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isPro, isTrial } = useSubscription();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isFreeUser = !isPro && !isTrial;
 
   const isImporting = useRef(false);
 
@@ -167,7 +171,7 @@ export default function HistoryPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-full">
-            {history.map((item) => (
+            {(isFreeUser ? history.slice(0, FREE_HISTORY_LIMIT) : history).map((item) => (
               <div
                 key={item.id}
                 onClick={() => router.push(`/transcript?id=${item.id}&url=${encodeURIComponent(item.video_url)}&from=history`)}
@@ -261,6 +265,23 @@ export default function HistoryPage() {
                 </div>
               </div>
             ))}
+            {isFreeUser && history.length > FREE_HISTORY_LIMIT && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+                <Lock className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                  {history.length - FREE_HISTORY_LIMIT} more item{history.length - FREE_HISTORY_LIMIT > 1 ? 's' : ''} in your history
+                </h3>
+                <p className="text-slate-500 mb-4">
+                  Upgrade to Pro to unlock your full history.
+                </p>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Upgrade to Pro
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </main>
