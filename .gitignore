@@ -46,3 +46,6 @@ test-rate-limit.js
 # ignore backups
 *.backup
 backups/
+
+# local MCP config
+.mcp.json

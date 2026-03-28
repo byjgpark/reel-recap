@@ -3,7 +3,7 @@ import { verifyCaptchaToken } from '@/utils/captcha';
 import { supabase } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generateThumbnailFromUrl } from '@/utils/videoUtils';
-import { processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest } from '@/lib/usageTracking';
+import { processAtomicAuthenticatedRequest, processAtomicAnonymousRequest, processCaptchaVerifiedRequest, refundUsage } from '@/lib/usageTracking';
 import { getDailyLimitForUser } from '@/lib/subscription';
 import { logger } from '@/utils/logger';
 import { getClientIP } from '@/utils/ip';
@@ -20,6 +20,7 @@ interface TranscriptResponse {
   error?: string;
   requiresVerification?: boolean;
   usageLogId?: string | null;
+  cooldownUntil?: string;
   usageInfo?: {
     remainingRequests: number;
     isAuthenticated: boolean;
@@ -33,6 +34,76 @@ interface SupadataTranscriptItem {
   offset: number;
   duration: number;
   lang: string;
+}
+
+interface FailureCooldownEntry {
+  status: number;
+  error: string;
+  expiresAt: number;
+}
+
+const FAILURE_COOLDOWN_MS = 15 * 60 * 1000;
+const failureCooldownByActorAndUrl = new Map<string, FailureCooldownEntry>();
+
+function buildFailureCooldownKey(actorKey: string, url: string): string {
+  return `${actorKey}:${url}`;
+}
+
+function getFailureCooldown(actorKey: string, url: string): FailureCooldownEntry | null {
+  const key = buildFailureCooldownKey(actorKey, url);
+  const entry = failureCooldownByActorAndUrl.get(key);
+
+  if (!entry) {
+    return null;
+  }
+
+  if (entry.expiresAt <= Date.now()) {
+    failureCooldownByActorAndUrl.delete(key);
+    return null;
+  }
+
+  return entry;
+}
+
+function setFailureCooldown(actorKey: string, url: string, status: number, error: string): number {
+  const key = buildFailureCooldownKey(actorKey, url);
+  const expiresAt = Date.now() + FAILURE_COOLDOWN_MS;
+
+  failureCooldownByActorAndUrl.set(key, {
+    status,
+    error,
+    expiresAt
+  });
+
+  return expiresAt;
+}
+
+function isTikTokShortUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    return hostname === 'vt.tiktok.com' || hostname === 'vm.tiktok.com' || (hostname.endsWith('tiktok.com') && parsed.pathname.startsWith('/t/'));
+  } catch {
+    return false;
+  }
+}
+
+async function resolveTikTokShortUrl(url: string): Promise<string> {
+  if (!isTikTokShortUrl(url)) {
+    return url;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(5000)
+    });
+
+    return response.url || url;
+  } catch {
+    return url;
+  }
 }
 
 // Helper function to get user from session
@@ -114,8 +185,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       );
     }
 
+    const resolvedUrl = await resolveTikTokShortUrl(url);
+    const actorKey = userId ? `user:${userId}` : `ip:${clientIP}`;
+
+    if (resolvedUrl !== url) {
+      logger.info('Resolved TikTok short URL', { ip: clientIP, originalUrl: url, resolvedUrl }, 'TranscriptAPI');
+    }
+
+    const cooldownEntry = getFailureCooldown(actorKey, resolvedUrl);
+    if (cooldownEntry) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: cooldownEntry.error,
+          cooldownUntil: new Date(cooldownEntry.expiresAt).toISOString()
+        },
+        { status: cooldownEntry.status }
+      );
+    }
+
     // Validate the URL
-    const validation = validateVideoUrl(url);
+    const validation = validateVideoUrl(resolvedUrl);
     if (!validation.isValid) {
       return NextResponse.json(
         { success: false, error: validation.error || 'Invalid video URL' },
@@ -129,7 +219,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         .from('user_history')
         .select('transcript, title')
         .eq('user_id', userId)
-        .eq('video_url', url)
+        .eq('video_url', resolvedUrl)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -140,7 +230,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             ? JSON.parse(cachedHistory.transcript) 
             : cachedHistory.transcript;
 
-          logger.info('Serving cached transcript', { userId, url }, 'TranscriptAPI');
+          logger.info('Serving cached transcript', { userId, url: resolvedUrl }, 'TranscriptAPI');
           
           return NextResponse.json({
             success: true,
@@ -168,7 +258,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
       atomicResult = await processAtomicAuthenticatedRequest(
         userId,
         'transcript',
-        url,
+        resolvedUrl,
         clientIP,
         dailyLimit
       );
@@ -183,9 +273,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             { status: 400 }
           );
         }
-        atomicResult = await processCaptchaVerifiedRequest(clientIP, 'transcript', url);
+        atomicResult = await processCaptchaVerifiedRequest(clientIP, 'transcript', resolvedUrl);
       } else {
-        atomicResult = await processAtomicAnonymousRequest(clientIP, 'transcript', url);
+        atomicResult = await processAtomicAnonymousRequest(clientIP, 'transcript', resolvedUrl);
       }
     }
 
@@ -218,7 +308,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
           );
         }
 
-        const response = await fetch(`https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(url)}&mode=generate`, {
+        const response = await fetch(`https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(resolvedUrl)}&mode=generate`, {
           method: 'GET',
           headers: {
             'x-api-key': supadataApiKey
@@ -227,7 +317,28 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          logger.warn('Supadata API call failed', { ip: clientIP, url, status: response.status }, 'TranscriptAPI');
+          logger.warn('Supadata API call failed', { ip: clientIP, url: resolvedUrl, status: response.status }, 'TranscriptAPI');
+
+          if (response.status === 404 || response.status === 500) {
+            const refundResult = await refundUsage(userId, clientIP, 'transcript');
+            if (!refundResult.success) {
+              logger.warn('Failed to refund usage after Supadata 404/500', { ip: clientIP, url: resolvedUrl }, 'TranscriptAPI');
+            }
+
+            const fallbackMessage = `Failed to fetch transcript (Status: ${response.status})`;
+            const errorMessage = errorData.message || fallbackMessage;
+            const cooldownExpiresAt = setFailureCooldown(actorKey, resolvedUrl, response.status, errorMessage);
+
+            return NextResponse.json(
+              {
+                success: false,
+                error: errorMessage,
+                cooldownUntil: new Date(cooldownExpiresAt).toISOString()
+              },
+              { status: response.status }
+            );
+          }
+
           return NextResponse.json(
             { success: false, error: errorData.message || `Failed to fetch transcript (Status: ${response.status})` },
             { status: response.status }
@@ -237,8 +348,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
         const data = await response.json();
         
         if (!data.content || data.content.length === 0) {
+          const refundResult = await refundUsage(userId, clientIP, 'transcript');
+          if (!refundResult.success) {
+            logger.warn('Failed to refund usage after empty Supadata transcript', { ip: clientIP, url: resolvedUrl }, 'TranscriptAPI');
+          }
+
+          const errorMessage = 'No transcript available for this video';
+          const cooldownExpiresAt = setFailureCooldown(actorKey, resolvedUrl, 404, errorMessage);
+
           return NextResponse.json(
-            { success: false, error: 'No transcript available for this video' },
+            {
+              success: false,
+              error: errorMessage,
+              cooldownUntil: new Date(cooldownExpiresAt).toISOString()
+            },
             { status: 404 }
           );
         }
@@ -273,7 +396,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
            The block below is removed to prevent double-counting.
         */
 
-        logger.info('Transcript success', { ip: clientIP, url, durationSeconds: durationInSeconds }, 'TranscriptAPI');
+        logger.info('Transcript success', { ip: clientIP, url: resolvedUrl, durationSeconds: durationInSeconds }, 'TranscriptAPI');
         
         // Save to history if authenticated
         if (userId) {
@@ -286,7 +409,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
             let thumbnail = null;
 
               // If Supadata didn't return a thumbnail, try to generate one locally
-              const generatedThumb = generateThumbnailFromUrl(url);
+              const generatedThumb = generateThumbnailFromUrl(resolvedUrl);
               if (generatedThumb) {
                 thumbnail = generatedThumb.url;
               }
@@ -297,7 +420,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Transcrip
               .from('user_history')
               .insert({
                 user_id: userId,
-                video_url: url,
+                video_url: resolvedUrl,
                 title: title,
                 thumbnail_url: thumbnail,
                 transcript: fullTranscript

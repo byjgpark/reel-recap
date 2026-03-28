@@ -540,82 +540,8 @@ CREATE TRIGGER update_user_usage_updated_at
   BEFORE UPDATE ON public.user_usage
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- Function to atomically process authenticated user requests (IP-based enforcement)
-CREATE OR REPLACE FUNCTION process_authenticated_request(
-  p_user_id UUID,
-  p_action TEXT,
-  p_video_url TEXT,
-  p_ip_address TEXT,
-  p_daily_limit INTEGER,
-  p_reset_interval_hours INTEGER
-) RETURNS TABLE(
-  success BOOLEAN,
-  remaining_requests INTEGER,
-  message TEXT,
-  usage_log_id UUID
-) AS $$
-DECLARE
-  v_ip_record ip_usage%ROWTYPE;
-  v_remaining INTEGER;
-  v_hours_since_reset NUMERIC;
-  v_now TIMESTAMP WITH TIME ZONE := NOW();
-  v_usage_log_id UUID;
-BEGIN
-  -- Get or create IP usage record with row-level locking
-  SELECT * INTO v_ip_record
-  FROM ip_usage
-  WHERE ip_address = public.safe_ip_cast(p_ip_address)
-  FOR UPDATE;
-
-  -- If no record exists, create one
-  IF NOT FOUND THEN
-    INSERT INTO ip_usage (ip_address, request_count, last_reset, created_at)
-    VALUES (public.safe_ip_cast(p_ip_address), 0, v_now, v_now)
-    RETURNING * INTO v_ip_record;
-  END IF;
-
-  -- Check if reset is needed (24 hours passed)
-  v_hours_since_reset := EXTRACT(EPOCH FROM (v_now - v_ip_record.last_reset)) / 3600;
-
-  IF v_hours_since_reset >= p_reset_interval_hours THEN
-    -- Reset counter
-    UPDATE ip_usage
-    SET request_count = 0,
-        last_reset = v_now
-    WHERE ip_address = public.safe_ip_cast(p_ip_address);
-
-    v_ip_record.request_count := 0;
-  END IF;
-
-  -- Calculate remaining requests
-  v_remaining := p_daily_limit - v_ip_record.request_count;
-
-  -- Check if limit exceeded
-  IF v_remaining <= 0 THEN
-    RETURN QUERY SELECT FALSE, 0, 'Daily limit reached. Please try again tomorrow!', NULL::UUID;
-    RETURN;
-  END IF;
-
-  -- Increment request count
-  UPDATE ip_usage
-  SET request_count = request_count + 1
-  WHERE ip_address = public.safe_ip_cast(p_ip_address);
-
-  -- Log the usage
-  INSERT INTO usage_logs (user_id, ip_address, action, video_url, status, created_at)
-  VALUES (p_user_id, public.safe_ip_cast(p_ip_address), p_action, p_video_url, 'success', v_now)
-  RETURNING id INTO v_usage_log_id;
-
-  -- Return success with updated remaining count
-  v_remaining := v_remaining - 1;
-  RETURN QUERY SELECT TRUE, v_remaining,
-    CASE
-      WHEN v_remaining = 0 THEN 'Request processed. Daily limit reached.'
-      ELSE v_remaining || ' requests remaining today'
-    END,
-    v_usage_log_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- NOTE: process_authenticated_request moved to 20260119_ip_based_auth_limits.sql
+-- because it depends on ip_usage table created there.
 
 
 
